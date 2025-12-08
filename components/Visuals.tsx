@@ -1,5 +1,4 @@
 
-import React from 'react';
 
 export const ProcessVisual = () => (
   <svg viewBox="0 0 200 100" className="w-full h-32 text-blue-400">
