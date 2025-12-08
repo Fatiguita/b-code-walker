@@ -288,13 +288,13 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         3. 'signature': The header line of the block.
         4. 'code': The FULL body content.
         5. 'type': 'function', 'class', 'statement', or 'variable'.
-        6. 'explanation': A short markdown explanation of what this block does (1-2 sentences).
-        7. 'mermaid': A valid Mermaid.js flowchart string representing the logic within this block. Use graph TD;
-        8. 'visualType': One of 'process', 'database', 'ui', 'api', 'logic' that best represents this block visually.
-        9. 'globalExplanation': An overview of the entire solution.
-        10. 'globalMermaid': A Mermaid diagram for the whole system.
-        11. Make sure you create as many signatures as present as blocks
-        12. Make sure to create a signature block for imports at the start
+        6- Make sure you create as many signatures as present as blocks
+        7- Make sure to create a signature block for imports at the start
+        8. 'explanation': A short markdown explanation of what this block does (1-2 sentences).
+        9. 'mermaid': A valid Mermaid.js flowchart string representing the logic within this block. Use graph TD;
+        10. 'visualType': One of 'process', 'database', 'ui', 'api', 'logic' that best represents this block visually.
+        11. 'globalExplanation': An overview of the entire solution.
+        12. 'globalMermaid': A Mermaid diagram for the whole system. 
       `;
 
       // Helper for recursive schema definition
