@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { AIPlan, AICodeBlock, VisualType } from '../types';
 import { Mermaid } from './Mermaid';
@@ -12,7 +13,6 @@ import {
 import { 
   CodeBracketIcon, 
   Square2StackIcon, 
-  DocumentTextIcon, 
   InformationCircleIcon, 
   ArrowPathIcon,
   EyeIcon,
