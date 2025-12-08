@@ -275,7 +275,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
 
     try {
       const ai = new GoogleGenAI({ apiKey: apiKey });
-      const model = 'gemini-3-pro-preview'; 
+      const model = 'gemini-2.5-flash'; 
 
       const systemInstruction = `
         You are an expert full-stack coding engine and visualizer.
