@@ -285,7 +285,17 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         CRITICAL RULES:
         1. Separate the code into 'Imports' and 'Blocks'.
         2. 'Blocks' is a recursive list of code regions. 
-        3. 'signature': The header line of the block.
+        3. 'signature': The header line of the block. example
+        '''
+        def divide(x, y):
+          if y == 0:
+              return "Error: Cannot divide by zero"
+          return x / y
+        '''
+        this function has 2 
+
+        this = def divide(x, y):
+        and this = if y == 0:
         4. 'code': The FULL body content.
         5. 'type': 'function', 'class', 'statement', or 'variable'.
         6- Make sure you create as many signatures as present as blocks
