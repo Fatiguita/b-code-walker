@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -10,7 +11,7 @@ import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-markdown';
 import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-markup'; // HTML
-import { SupportedLanguage, EditorFile, AIPlan, AICodeBlock, AppSettings, VisualType } from '../types';
+import { SupportedLanguage, EditorFile, AIPlan, AICodeBlock, AppSettings } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   XMarkIcon, 
@@ -51,7 +52,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   setFiles, 
   activeFileId, 
   setActiveFileId,
-  settings,
+  // settings is present in props but unused in this component, removing from destructuring to satisfy noUnusedLocals
   aiPlans,
   setAiPlans,
   activePlanId,
@@ -86,7 +87,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   // AI Synoptic Table States
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [importsExpanded, setImportsExpanded] = useState(true);
-  const [activeBlockMenu, setActiveBlockMenu] = useState<string | null>(null);
+  // Removed unused activeBlockMenu state
   const [visibleCodeBlocks, setVisibleCodeBlocks] = useState<Set<string>>(new Set());
   
   // AI Explanation State
@@ -251,8 +252,8 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const getApiKey = () => {
     const stored = localStorage.getItem('b_code_walker_api_key');
     if (stored) return stored;
-    // Fallback for dev environment or initial setup if env is provided
-    return process.env.API_KEY;
+    // Use Vite env variable instead of process.env for standard build compatibility
+    return import.meta.env.VITE_API_KEY || '';
   };
 
   const generateAIPlan = async () => {
@@ -389,7 +390,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   };
 
   const explainCode = async (id: string, code: string) => {
-    setActiveBlockMenu(null);
+    // Removed setActiveBlockMenu(null) as state was removed
     if (explanations[id]) {
       // Just ensure visible
       return;
@@ -409,7 +410,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         model: 'gemini-2.5-flash',
         contents: `Explain this code block simply in one or two sentences:\n\n${code}`
       });
-      setExplanations(prev => ({ ...prev, [id]: response.text }));
+      setExplanations(prev => ({ ...prev, [id]: response.text || "No explanation returned." }));
     } catch (e) {
       console.error(e);
       setExplanations(prev => ({ ...prev, [id]: "Failed to generate explanation." }));
@@ -482,7 +483,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const insertCode = (code: string) => {
     const newContent = activeFile.content + '\n' + code;
     updateActiveFileContent(newContent);
-    setActiveBlockMenu(null);
+    // Removed setActiveBlockMenu(null)
   };
 
   // Keyboard Shortcuts
@@ -511,7 +512,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         setActiveMenu(null);
       }
       if (!(event.target as Element).closest('.function-menu-btn')) {
-        setActiveBlockMenu(null);
+        // Removed setActiveBlockMenu(null)
       }
       if (editingFileId && !(event.target as Element).closest('.tab-rename-input')) {
          confirmRename();
