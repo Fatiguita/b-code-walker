@@ -6,7 +6,7 @@
 ![React](https://img.shields.io/badge/react-19.0-61dafb.svg)
 ![Gemini](https://img.shields.io/badge/AI-Gemini_3_Pro-8e44ad.svg)
 
-**b-code-walker** is a next-generation "Integrated Design Environment" (IDE) that doesn't just write code—it visualizes it. Powered by the **Google Gemini 3.0 Pro** model, it bridges the gap between raw syntax and high-level architectural understanding.
+**b-code-walker** is a next-generation "Integrated Design Environment" (IDE) that doesn't just write code—it visualizes it. Powered by the **Google Gemini 2.5 Flash** model, it bridges the gap between raw syntax and high-level architectural understanding.
 
 It operates on a **Bring Your Own Key (BYOK)** model for complete privacy.
 
