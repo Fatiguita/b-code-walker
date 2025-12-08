@@ -1,54 +1,103 @@
-
 # b-code-walker
+### AI-Powered Architectural Code Editor
 
-**b-code-walker** is a lightweight, syntax-highlighting text editor and integrated design environment (IDE) powered by the Google Gemini API. It bridges the gap between raw code and architectural visualization.
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![React](https://img.shields.io/badge/react-19.0-61dafb.svg)
+![Gemini](https://img.shields.io/badge/AI-Gemini_3_Pro-8e44ad.svg)
 
-## Features
+**b-code-walker** is a next-generation "Integrated Design Environment" (IDE) that doesn't just write code—it visualizes it. Powered by the **Google Gemini 3.0 Pro** model, it bridges the gap between raw syntax and high-level architectural understanding.
 
-*   **Smart Editor**: Syntax highlighting for JS, TS, HTML, CSS, Python, SQL, and JSON.
-*   **AI Architect**: Generates complex code structures with "Synoptic Tree Views".
-*   **Visualizer**: Automatically converts AI-generated code plans into Mermaid flowcharts and interactive SVG diagrams (UI, Database, Logic flows).
-*   **No Build Required**: Uses ES Modules and Import Maps for instant startup.
-*   **BYOK (Bring Your Own Key)**: Securely use your own Google Gemini API key, stored locally in your browser.
+It operates on a **Bring Your Own Key (BYOK)** model for complete privacy.
 
-## Getting Started
+---
+
+## 🚀 Key Features
+
+### 1. The Synoptic Tree View
+Unlike standard chat interfaces that dump a wall of text, **b-code-walker** parses AI responses into a structured, interactive tree.
+*   **Navigate Logic**: Collapse/Expand classes, functions, and import blocks.
+*   **Selective Insertion**: Inject specific functions into your active file without copying the whole response.
+*   **Inline Explanation**: Click the "Chat" icon on any block to get a context-aware explanation of just that snippet.
+
+### 2. Live Visualization Engine
+The **Visualizer Tab** transforms abstract code plans into concrete visual metaphors.
+*   **Mermaid.js Integration**: Automatically generates flowcharts and sequence diagrams for logic flows.
+*   **Visual Metaphors**: Uses animated SVGs to represent code archetypes:
+    *   🔵 **Process**: Async flows and logic loops.
+    *   🟢 **Database**: Data structures and schema definitions.
+    *   🟣 **UI**: Component hierarchies and render cycles.
+    *   🟠 **API**: Network requests and data fetching.
+
+### 3. Professional Editor
+*   **Multi-Tab Interface**: Switch between Editor, Visualizer, and Settings seamlessy.
+*   **Syntax Highlighting**: Powered by PrismJS for JS, TS, HTML, CSS, Python, SQL, and Markdown.
+*   **Smart Search**: Regex-enabled find and highlight.
+*   **History**: Local undo/redo stack.
+
+---
+
+## 🛠️ Getting Started
 
 ### Prerequisites
-
-*   A modern web browser (Chrome, Edge, Firefox).
-*   A Google Gemini API Key. Get one here: [Google AI Studio](https://aistudio.google.com/app/apikey).
+*   Node.js (v18 or higher)
+*   npm or yarn
 
 ### Installation
-
-1.  **Clone the repository:**
+1.  **Clone the repository**
     ```bash
     git clone https://github.com/Fatiguita/b-code-walker.git
     cd b-code-walker
     ```
 
-2.  **Run the app:**
-    *   Since this app uses ES Modules, you need a local server.
-    *   **Python:** `python3 -m http.server 8000`
-    *   **Node (http-server):** `npx http-server .`
-    *   **VS Code:** Use the "Live Server" extension.
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-3.  **Open in Browser:**
-    Navigate to `http://localhost:8000` (or the port shown in your terminal).
+3.  **Start Development Server**
+    ```bash
+    npm run dev
+    ```
+    The app will open at `http://localhost:5173`.
 
-### Configuration
+### Configuration (BYOK)
+1.  Navigate to the **Settings** tab (Gear Icon).
+2.  Enter your **Google Gemini API Key**.
+    *   *Need a key? Get one at [Google AI Studio](https://aistudio.google.com/app/apikey).*
+3.  (Optional) Customize your theme (Dark Nebula, Cloud White, Midnight Blue).
 
-1.  Go to the **Settings** tab (Gear icon).
-2.  Paste your **Gemini API Key** in the API Configuration section.
-3.  The key is saved to your browser's `localStorage` and is never sent to any server other than Google's API endpoints.
+---
 
-## Tech Stack
+## 🔒 Privacy & Security
 
-*   **React 19**: UI Library (via ESM).
-*   **Google GenAI SDK**: For AI logic and reasoning.
-*   **PrismJS**: Syntax highlighting.
-*   **Mermaid.js**: Diagram generation.
-*   **Tailwind CSS**: Styling (via CDN).
+**b-code-walker** is designed with privacy as a priority.
+
+*   **Local Storage**: Your API Key and App Settings are stored exclusively in your browser's `localStorage`.
+*   **Direct Communication**: The app communicates directly from your browser to Google's Generative AI API endpoints (`generativelanguage.googleapis.com`).
+*   **No Middleman**: No intermediate backend server reads your code or prompts.
+
+---
+
+## 💡 How to Use
+
+1.  **Draft**: Open the **Editor Tab**. Select a language.
+2.  **Prompt**: Click "Generate Code". Describe your feature (e.g., *"Create a React hook for fetching user data with debouncing"*).
+3.  **Review**: The AI generates a **Plan**.
+    *   Use the **Tree View** in the sidebar to review code blocks.
+    *   Click **Insert** (+) to add code to your file.
+4.  **Visualize**: Switch to the **Visualizer Tab** to see the architectural diagram of the code you just generated.
+
+---
+
+## 📦 Tech Stack
+
+*   **Core**: React 19 + Vite
+*   **AI**: Google GenAI SDK (`@google/genai`)
+*   **Styling**: Tailwind CSS
+*   **Editor**: `react-simple-code-editor` + `prismjs`
+*   **Diagrams**: `mermaid`
 
 ## License
 
-MIT
+MIT License. Feel free to fork, modify, and distribute.
