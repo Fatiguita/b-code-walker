@@ -295,7 +295,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         this function has 2 
 
         this = def divide(x, y):
-        and this = if y == 0:
+        and this one is also a signature = if y == 
         4. 'code': The FULL body content.
         5. 'type': 'function', 'class', 'statement', or 'variable'.
         6- Make sure you create as many signatures as present as blocks
