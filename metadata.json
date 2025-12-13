@@ -1,5 +1,5 @@
 {
-  "name": "b-code-walker",
+  "name": "b-code-walker-studio",
   "description": "A lightweight, syntax-highlighting text editor with multi-tab support and AI-powered coding visualization.",
   "requestFramePermissions": []
 }
