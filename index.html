@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>b-code-walker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+      /* Custom scrollbar for a cleaner editor look */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e1e1e; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4b5563; 
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280; 
+      }
+      /* Editor specific overrides to ensure font consistency */
+      .editor-font {
+        font-family: 'Fira Code', 'Cascadia Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+      }
+      /* Mermaid specific */
+      .mermaid {
+        display: flex;
+        justify-content: center;
+      }
+    </style>
+
+<script type="importmap">
+{
+  "imports": {
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "mermaid": "https://aistudiocdn.com/mermaid@^11.12.2",
+    "react-simple-code-editor": "https://aistudiocdn.com/react-simple-code-editor@^0.14.1",
+    "prismjs/": "https://aistudiocdn.com/prismjs@^1.30.0/",
+    "prismjs": "https://aistudiocdn.com/prismjs@^1.30.0",
+    "react-dom": "https://esm.sh/react-dom@^19.2.1",
+    "jszip": "https://esm.sh/jszip@3.10.1"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/b-code-walker/assets/index-Djq8BEUQ.js"></script>
+</head>
+  <body class="bg-gray-900 text-white h-screen overflow-hidden">
+    <div id="root" class="h-full"></div>
+  </body>
+</html>
