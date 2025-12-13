@@ -1,6 +1,8 @@
 # b-code-walker
 ### AI-Powered Architectural Code Editor (coded with gemini 3 AI model)
 
+### 🚀 **[Play with b-code-walker Live Here](https://fatiguita.github.io/b-code-walker/)**
+
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![React](https://img.shields.io/badge/react-19.0-61dafb.svg)
