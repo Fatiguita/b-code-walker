@@ -8,7 +8,7 @@ import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-markup';
-import { AIPlan, AICodeBlock, VisualType } from '../types';
+import { AIPlan, AICodeBlock } from '../types';
 import { Mermaid } from './Mermaid';
 import { 
   ProcessVisual, 
@@ -305,7 +305,7 @@ export const VisualizerTab: React.FC<VisualizerTabProps> = ({
                <span className="truncate flex-1">{plan.name || 'Untitled Plan'}</span>
                <button 
                   onClick={(e) => closePlan(e, plan.id)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-500/20 hover:text-red-400 transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:red-500/20 hover:text-red-400 transition-all"
                >
                   <XMarkIcon className="w-3.5 h-3.5" />
                </button>

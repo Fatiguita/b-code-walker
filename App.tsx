@@ -220,9 +220,6 @@ const App: React.FC = () => {
       const hasAutoSave = localStorage.getItem('bcw_autosave');
       if (hasAutoSave && files.length === 1 && files[0].content === '') {
           // If fresh app load and autosave exists
-          const ts = localStorage.getItem('bcw_autosave_ts');
-          const dateStr = ts ? new Date(parseInt(ts)).toLocaleTimeString() : 'Unknown';
-          
           // Optional: Could prompt user here. For now, we leave it manual via Sessions menu to be safe.
       }
   }, []);

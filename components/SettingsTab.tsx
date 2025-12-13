@@ -12,8 +12,7 @@ import {
   PhotoIcon,
   ArrowsPointingOutIcon,
   EyeIcon,
-  XMarkIcon,
-  Square2StackIcon
+  XMarkIcon
 } from './Icons';
 
 interface SettingsTabProps {
