@@ -33,7 +33,8 @@ import {
   CheckIcon,
   PaperAirplaneIcon,
   CommandLineIcon,
-  ArrowsPointingOutIcon
+  ArrowsPointingOutIcon,
+  LanguageIcon
 } from './Icons';
 
 interface EditorTabProps {
@@ -171,6 +172,8 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [visibleCodeBlocks, setVisibleCodeBlocks] = useState<Set<string>>(new Set());
   const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [annotatedBlocks, setAnnotatedBlocks] = useState<Record<string, string>>({});
+  const [annotatingId, setAnnotatingId] = useState<string | null>(null);
   const [explainingId, setExplainingId] = useState<string | null>(null);
   const [queryingBlockId, setQueryingBlockId] = useState<string | null>(null);
   const [userQuestion, setUserQuestion] = useState('');
@@ -236,6 +239,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
     setAiError(null);
     setExpandedBlocks(new Set());
     setExplanations({});
+    setAnnotatedBlocks({});
     setVisibleCodeBlocks(new Set());
     if (!activePlanId) { setDraftLogs([]); logsAccumulator.current = []; }
     addLog('sending', 'Preparing API Request...');
@@ -358,6 +362,70 @@ Instructions:
     } finally { setExplainingId(null); }
   };
 
+  const handleAnnotateCode = async (id: string, code: string, language: string) => {
+    // Check API Key
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        setAnnotatedBlocks(prev => ({ ...prev, [id]: "// API Key Missing. Please check settings." }));
+        return;
+    }
+    
+    if (annotatedBlocks[id]) {
+        // Toggle off if already exists
+        setAnnotatedBlocks(prev => { const n = {...prev}; delete n[id]; return n; });
+        return;
+    }
+
+    setAnnotatingId(id);
+    addLog('sending', `Generating natural language translation for block ${id}...`);
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `
+Task: Rewrite the following ${language} code into "Structured Natural Language".
+Objective: Explain what the code does by REPLACING code lines with plain English summaries, but strictly PRESERVING the original indentation and control flow structure.
+
+Rules:
+1. PRESERVE exact indentation and brace style ({ }).
+2. KEEP control flow keywords (if, else, for, while, return, try, catch) to maintain the logic flow.
+3. REPLACE variable assignments, function calls, and logic expressions with concise English sentences describing the action.
+4. Do NOT output valid code. Output readable logic.
+5. Do NOT add extra comments. The English text IS the code.
+
+Example Input:
+  const data = await fetchData();
+  if (data.isValid) {
+    process(data);
+  }
+
+Example Output:
+  Fetch the data from the source
+  if (the data is valid) {
+    Process the data
+  }
+
+Code to Rewrite:
+${code}
+`;
+        const response = await ai.models.generateContent({ 
+            model: settings.activeModel, 
+            contents: prompt 
+        });
+        
+        const result = response.text || "// No response generated.";
+        // Clean up markdown code blocks if present
+        const cleanResult = result.replace(/^```[a-z]*\n/i, '').replace(/\n```$/, '');
+        
+        setAnnotatedBlocks(prev => ({ ...prev, [id]: cleanResult }));
+        addLog('response', `Translation generated for block ${id}`);
+    } catch (e: any) {
+        addLog('error', `Translation failed for block ${id}`, e.message);
+        setAnnotatedBlocks(prev => ({ ...prev, [id]: `// Error generating translation: ${e.message}` }));
+    } finally {
+        setAnnotatingId(null);
+    }
+  };
+
   const toggleBlock = (id: string) => { const newSet = new Set(expandedBlocks); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); setExpandedBlocks(newSet); };
   const toggleCodeVisibility = (id: string) => { const newSet = new Set(visibleCodeBlocks); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); setVisibleCodeBlocks(newSet); };
   const updateActiveFileLanguage = (newLang: SupportedLanguage) => { setFiles(files.map(f => f.id === activeFileId ? { ...f, language: newLang } : f)); };
@@ -419,6 +487,7 @@ Instructions:
              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 ml-2 self-start mt-0.5">
                 <button onClick={(e) => { e.stopPropagation(); toggleCodeVisibility(block.id); }} className={`p-1 rounded hover:bg-[var(--bg-primary)] ${isCodeVisible ? 'text-[var(--accent-primary)] bg-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`} title="Toggle Code"> <EyeIcon className="w-3 h-3" /> </button>
                 <button onClick={(e) => { e.stopPropagation(); insertCode(block.code); }} className="p-1 rounded hover:bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-white" title="Insert Code"> <PlusIcon className="w-3 h-3" /> </button>
+                <button onClick={(e) => { e.stopPropagation(); handleAnnotateCode(block.id, block.code, activeFile.language); }} className={`p-1 rounded hover:bg-[var(--bg-primary)] ${annotatedBlocks[block.id] ? 'text-teal-400 bg-[var(--bg-primary)]' : 'text-[var(--text-secondary)] hover:text-white'}`} title="Translate to Natural Language"> <LanguageIcon className="w-3 h-3" /> </button>
                 <button onClick={(e) => { e.stopPropagation(); if (queryingBlockId === block.id) setQueryingBlockId(null); else { setQueryingBlockId(block.id); setUserQuestion(''); } }} className={`p-1 rounded hover:bg-[var(--bg-primary)] ${queryingBlockId === block.id ? 'text-green-400 bg-[var(--bg-primary)]' : 'text-[var(--text-secondary)] hover:text-white'}`} title="Ask Question / Explain"> <ChatBubbleLeftRightIcon className="w-3 h-3" /> </button>
              </div>
           </div>
@@ -436,6 +505,24 @@ Instructions:
                         {explainingId === block.id ? ( <div className="flex items-center gap-2"> <ArrowPathIcon className="w-3 h-3 animate-spin" /> <span className="italic">Thinking...</span> </div> ) : ( <div> {explanations[block.id]} </div> )}
                         <button onClick={() => setExplanations(prev => { const n = {...prev}; delete n[block.id]; return n; })} className="absolute top-1 right-1 opacity-50 hover:opacity-100"><XMarkIcon className="w-3 h-3" /></button>
                      </div>
+                  )}
+                  {annotatedBlocks[block.id] && (
+                    <div className="my-1 bg-[var(--bg-tertiary)]/50 border-l-2 border-teal-500 rounded p-2 relative group/annotation">
+                        {annotatingId === block.id ? (
+                            <div className="flex items-center gap-2 text-xs text-teal-400"> <ArrowPathIcon className="w-3 h-3 animate-spin" /> <span>Translating...</span> </div>
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-center mb-1">
+                                     <span className="text-[9px] font-bold text-teal-500 uppercase">Natural Language View</span>
+                                     <button onClick={() => navigator.clipboard.writeText(annotatedBlocks[block.id])} className="text-[9px] text-[var(--text-secondary)] hover:text-teal-400">Copy</button>
+                                </div>
+                                <pre className="font-mono text-[10px] leading-relaxed text-[var(--text-secondary)] whitespace-pre overflow-x-auto">
+                                    <div dangerouslySetInnerHTML={{ __html: highlight(annotatedBlocks[block.id]) }} />
+                                </pre>
+                                <button onClick={() => setAnnotatedBlocks(prev => { const n = {...prev}; delete n[block.id]; return n; })} className="absolute top-1 right-1 opacity-50 hover:opacity-100 p-1"><XMarkIcon className="w-3 h-3" /></button>
+                            </>
+                        )}
+                    </div>
                   )}
                   {isCodeVisible && (
                       <div className="my-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 overflow-x-auto group/code relative">
@@ -574,3 +661,4 @@ Instructions:
     </div>
   );
 };
+
