@@ -3,9 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { EditorTab } from './components/EditorTab';
 import { SettingsTab } from './components/SettingsTab';
 import { VisualizerTab } from './components/VisualizerTab';
+import { WorkshopTab } from './components/WorkshopTab'; // Consolidated Tab
+import { AliceWidget } from './components/AliceWidget';
 import { Dialog, ModalType } from './components/Modal';
-import { TabId, EditorFile, SupportedLanguage, AppSettings, AIPlan, AIModelId, SessionData, ThemeStudioState } from './types';
-import { CodeBracketIcon, Square2StackIcon, Cog6ToothIcon, SparklesIcon, ArrowPathIcon, DocumentTextIcon, CheckIcon, XMarkIcon } from './components/Icons';
+import { TabId, EditorFile, SupportedLanguage, AppSettings, AIPlan, AIModelId, SessionData, ThemeStudioState, ConceptLesson, WorkflowState } from './types';
+import { CodeBracketIcon, Square2StackIcon, Cog6ToothIcon, SparklesIcon, ArrowPathIcon, DocumentTextIcon, CheckIcon, XMarkIcon, WrenchScrewdriverIcon } from './components/Icons'; // Removed unused icons
 import JSZip from 'jszip';
 
 // Helper to sanitize IDs on load
@@ -29,6 +31,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>(TabId.EDITOR);
   const [showSessionModal, setShowSessionModal] = useState(false);
   
+  // Cross-Tab Communication
+  const [communityRequest, setCommunityRequest] = useState<{ type: 'discussion' | 'blog'; topic: string } | null>(null);
+
   // --- Global State Lifted from Editor ---
   // Default to empty new file
   const [files, setFiles] = useState<EditorFile[]>([
@@ -46,6 +51,12 @@ const App: React.FC = () => {
   // Changed from single plan to array of plans
   const [aiPlans, setAiPlans] = useState<AIPlan[]>([]);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
+
+  // --- Concept Cache ---
+  const [conceptCache, setConceptCache] = useState<Record<string, ConceptLesson>>({});
+
+  // --- Workflow State ---
+  const [workflowState, setWorkflowState] = useState<WorkflowState>({ nodes: [], edges: [], zoom: 1 });
 
   // --- Theme Studio Persistent State ---
   const [themeStudioState, setThemeStudioState] = useState<ThemeStudioState>({
@@ -95,7 +106,6 @@ const App: React.FC = () => {
       const saved = localStorage.getItem('b_code_walker_settings');
       const parsed = saved ? JSON.parse(saved) : {};
       
-      // Default Custom Colors (Dark Theme Base)
       const defaultCustomColors = {
         bgPrimary: '#111827',
         bgSecondary: '#1f2937',
@@ -103,8 +113,8 @@ const App: React.FC = () => {
         textPrimary: '#f3f4f6',
         textSecondary: '#9ca3af',
         borderColor: '#374151',
-        accentPrimary: '#2563eb', // blue-600
-        accentSecondary: '#60a5fa', // blue-400
+        accentPrimary: '#2563eb', 
+        accentSecondary: '#60a5fa', 
         textures: {}
       };
 
@@ -114,9 +124,9 @@ const App: React.FC = () => {
         autoDownloadEnabled: false,
         autoDownloadInterval: 60,
         autoDownloadFileId: null,
-        autoSaveToBrowser: false, // Default OFF
-        autoExportSessionEnabled: false, // Default OFF
-        autoExportSessionInterval: 300, // 5 minutes
+        autoSaveToBrowser: false, 
+        autoExportSessionEnabled: false, 
+        autoExportSessionInterval: 300, 
         customColors: defaultCustomColors,
         ...parsed 
       };
@@ -178,31 +188,32 @@ const App: React.FC = () => {
         // Strip heavy images for auto-save to allow basic recovery without hitting quota
         const strippedStudioState: ThemeStudioState = {
             ...themeStudioState,
-            uploadedImage: null, // Heavy
-            widgetImages: {}     // Heavy
+            uploadedImage: null, 
+            widgetImages: {}     
         };
         
         const autoSaveData: SessionData = {
-            version: 1,
+            version: 2,
             name: 'Auto-Save',
             timestamp: Date.now(),
-            files: files.map(f => ({ ...f, history: [f.content], historyIndex: 0 })), // Minify history
+            files: files.map(f => ({ ...f, history: [f.content], historyIndex: 0 })), 
             aiPlans,
             settings,
-            themeStudioState: strippedStudioState
+            themeStudioState: strippedStudioState,
+            conceptCache,
+            workflowState 
         };
         
         try {
             localStorage.setItem('bcw_autosave', JSON.stringify(autoSaveData));
-            // Also save timestamp
             localStorage.setItem('bcw_autosave_ts', Date.now().toString());
         } catch (e) {
             console.warn("Auto-save failed (Storage Full)", e);
         }
-    }, 5000); // Debounce auto-save 5s after changes
+    }, 5000); 
 
     return () => clearTimeout(saveTimeout);
-  }, [files, aiPlans, settings, themeStudioState, settings.autoSaveToBrowser]);
+  }, [files, aiPlans, settings, themeStudioState, conceptCache, workflowState, settings.autoSaveToBrowser]);
 
   // --- Auto-Export SESSION ZIP Effect ---
   useEffect(() => {
@@ -213,119 +224,38 @@ const App: React.FC = () => {
     }, settings.autoExportSessionInterval * 1000);
 
     return () => clearInterval(intervalId);
-  }, [settings.autoExportSessionEnabled, settings.autoExportSessionInterval, files, aiPlans, settings, themeStudioState]);
-
-  // --- Load Auto-Save on Startup ---
-  useEffect(() => {
-      const hasAutoSave = localStorage.getItem('bcw_autosave');
-      if (hasAutoSave && files.length === 1 && files[0].content === '') {
-          // If fresh app load and autosave exists
-          // Optional: Could prompt user here. For now, we leave it manual via Sessions menu to be safe.
-      }
-  }, []);
-
+  }, [settings.autoExportSessionEnabled, settings.autoExportSessionInterval, files, aiPlans, settings, themeStudioState, conceptCache, workflowState]);
 
   // --- Theme Style Injection ---
   const getThemeStyles = () => {
-    // If Custom, use the user's defined colors
     if (settings.theme === 'custom') {
         const c = settings.customColors;
         const t = c.textures || {};
-        
-        // We inject textures as specific variables.
-        // We also provide a fallback 'none' if no texture is present.
         return `
           --bg-primary: ${c.bgPrimary};
           --bg-primary-tex: ${t.bgPrimary ? `url(${t.bgPrimary})` : 'none'};
-          
           --bg-secondary: ${c.bgSecondary};
           --bg-secondary-tex: ${t.bgSecondary ? `url(${t.bgSecondary})` : 'none'};
-          
           --bg-tertiary: ${c.bgTertiary};
           --bg-tertiary-tex: ${t.bgTertiary ? `url(${t.bgTertiary})` : 'none'};
-          
           --text-primary: ${c.textPrimary};
           --text-secondary: ${c.textSecondary};
           --border-color: ${c.borderColor};
-          
           --editor-bg: ${c.bgPrimary};
           --tab-active: ${c.bgPrimary};
           --tab-inactive: ${c.bgSecondary};
-          
           --accent-primary: ${c.accentPrimary};
           --accent-primary-tex: ${t.accentPrimary ? `url(${t.accentPrimary})` : 'none'};
-          
           --accent-secondary: ${c.accentSecondary};
         `;
     }
 
-    // Presets
     const presets: Record<string, any> = {
-      light: {
-        '--bg-primary': '#ffffff', '--bg-primary-tex': 'none',
-        '--bg-secondary': '#f3f4f6', '--bg-secondary-tex': 'none',
-        '--bg-tertiary': '#e5e7eb', '--bg-tertiary-tex': 'none',
-        '--text-primary': '#111827',
-        '--text-secondary': '#4b5563',
-        '--border-color': '#d1d5db',
-        '--editor-bg': '#f9fafb',
-        '--tab-active': '#ffffff',
-        '--tab-inactive': '#e5e7eb',
-        '--accent-primary': '#2563eb', '--accent-primary-tex': 'none',
-        '--accent-secondary': '#60a5fa',
-      },
-      midnight: {
-        '--bg-primary': '#0f172a', '--bg-primary-tex': 'none',
-        '--bg-secondary': '#1e293b', '--bg-secondary-tex': 'none',
-        '--bg-tertiary': '#334155', '--bg-tertiary-tex': 'none',
-        '--text-primary': '#f8fafc',
-        '--text-secondary': '#94a3b8',
-        '--border-color': '#334155',
-        '--editor-bg': '#0f172a',
-        '--tab-active': '#0f172a',
-        '--tab-inactive': '#1e293b',
-        '--accent-primary': '#3b82f6', '--accent-primary-tex': 'none',
-        '--accent-secondary': '#93c5fd',
-      },
-      forest: {
-        '--bg-primary': '#051a15', '--bg-primary-tex': 'none',
-        '--bg-secondary': '#0a2923', '--bg-secondary-tex': 'none',
-        '--bg-tertiary': '#124037', '--bg-tertiary-tex': 'none',
-        '--text-primary': '#ecfdf5',
-        '--text-secondary': '#6ee7b7',
-        '--border-color': '#064e3b',
-        '--editor-bg': '#051a15',
-        '--tab-active': '#051a15',
-        '--tab-inactive': '#0a2923',
-        '--accent-primary': '#10b981', '--accent-primary-tex': 'none',
-        '--accent-secondary': '#34d399',
-      },
-      synthwave: {
-        '--bg-primary': '#1a0b2e', '--bg-primary-tex': 'none',
-        '--bg-secondary': '#2e1065', '--bg-secondary-tex': 'none',
-        '--bg-tertiary': '#4c1d95', '--bg-tertiary-tex': 'none',
-        '--text-primary': '#fdf4ff',
-        '--text-secondary': '#e879f9',
-        '--border-color': '#701a75',
-        '--editor-bg': '#1a0b2e',
-        '--tab-active': '#1a0b2e',
-        '--tab-inactive': '#2e1065',
-        '--accent-primary': '#d946ef', '--accent-primary-tex': 'none',
-        '--accent-secondary': '#f0abfc',
-      },
-      dark: {
-        '--bg-primary': '#111827', '--bg-primary-tex': 'none',
-        '--bg-secondary': '#1f2937', '--bg-secondary-tex': 'none',
-        '--bg-tertiary': '#374151', '--bg-tertiary-tex': 'none',
-        '--text-primary': '#f3f4f6',
-        '--text-secondary': '#9ca3af',
-        '--border-color': '#374151',
-        '--editor-bg': '#111827',
-        '--tab-active': '#111827',
-        '--tab-inactive': '#1f2937',
-        '--accent-primary': '#2563eb', '--accent-primary-tex': 'none',
-        '--accent-secondary': '#60a5fa',
-      }
+      light: { '--bg-primary': '#ffffff', '--bg-secondary': '#f3f4f6', '--bg-tertiary': '#e5e7eb', '--text-primary': '#111827', '--text-secondary': '#4b5563', '--border-color': '#d1d5db', '--editor-bg': '#f9fafb', '--tab-active': '#ffffff', '--tab-inactive': '#e5e7eb', '--accent-primary': '#2563eb', '--accent-secondary': '#60a5fa' },
+      midnight: { '--bg-primary': '#0f172a', '--bg-secondary': '#1e293b', '--bg-tertiary': '#334155', '--text-primary': '#f8fafc', '--text-secondary': '#94a3b8', '--border-color': '#334155', '--editor-bg': '#0f172a', '--tab-active': '#0f172a', '--tab-inactive': '#1e293b', '--accent-primary': '#3b82f6', '--accent-secondary': '#93c5fd' },
+      forest: { '--bg-primary': '#051a15', '--bg-secondary': '#0a2923', '--bg-tertiary': '#124037', '--text-primary': '#ecfdf5', '--text-secondary': '#6ee7b7', '--border-color': '#064e3b', '--editor-bg': '#051a15', '--tab-active': '#051a15', '--tab-inactive': '#0a2923', '--accent-primary': '#10b981', '--accent-secondary': '#34d399' },
+      synthwave: { '--bg-primary': '#1a0b2e', '--bg-secondary': '#2e1065', '--bg-tertiary': '#4c1d95', '--text-primary': '#fdf4ff', '--text-secondary': '#e879f9', '--border-color': '#701a75', '--editor-bg': '#1a0b2e', '--tab-active': '#1a0b2e', '--tab-inactive': '#2e1065', '--accent-primary': '#d946ef', '--accent-secondary': '#f0abfc' },
+      dark: { '--bg-primary': '#111827', '--bg-secondary': '#1f2937', '--bg-tertiary': '#374151', '--text-primary': '#f3f4f6', '--text-secondary': '#9ca3af', '--border-color': '#374151', '--editor-bg': '#111827', '--tab-active': '#111827', '--tab-inactive': '#1f2937', '--accent-primary': '#2563eb', '--accent-secondary': '#60a5fa' }
     };
 
     const active = presets[settings.theme] || presets['dark'];
@@ -335,7 +265,6 @@ const App: React.FC = () => {
   // --- Session Management ---
   const [savedSessions, setSavedSessions] = useState<string[]>([]);
 
-  // Reload sessions list when modal opens
   useEffect(() => {
     if (showSessionModal) {
         const keys = Object.keys(localStorage).filter(k => k.startsWith('bcw_session_'));
@@ -361,8 +290,6 @@ const App: React.FC = () => {
     try {
         const optimizedFiles = files.map(f => ({ ...f, history: [f.content], historyIndex: 0 }));
         
-        // STRIP IMAGES FROM LOCAL SAVE TO PREVENT QUOTA ERRORS
-        // We warn the user that images aren't saved locally
         const strippedStudioState: ThemeStudioState = {
             ...themeStudioState,
             uploadedImage: null,
@@ -370,18 +297,19 @@ const App: React.FC = () => {
         };
 
         const sessionData: SessionData = { 
-            version: 1, 
+            version: 2, 
             name, 
             timestamp: Date.now(), 
             files: optimizedFiles, 
             aiPlans, 
             settings,
-            themeStudioState: strippedStudioState
+            themeStudioState: strippedStudioState,
+            conceptCache,
+            workflowState
         };
         
         const stringified = JSON.stringify(sessionData);
         
-        // Quota check
         if (stringified.length > 4500000) {
              throw new Error("Quota Exceeded");
         }
@@ -410,11 +338,9 @@ const App: React.FC = () => {
         const sanitizedPlans = (data.aiPlans || []).map(p => ({ ...p, blocks: assignUniqueIds(p.blocks || [], `restored-${p.id}`) }));
         setAiPlans(sanitizedPlans);
         setSettings(data.settings);
-        
-        // Restore Theme Studio State if present
-        if (data.themeStudioState) {
-            setThemeStudioState(data.themeStudioState);
-        }
+        if (data.themeStudioState) setThemeStudioState(data.themeStudioState);
+        if (data.conceptCache) setConceptCache(data.conceptCache);
+        if (data.workflowState) setWorkflowState(data.workflowState);
 
         setActiveFileId(data.files[0]?.id || '1');
         setShowSessionModal(false);
@@ -423,7 +349,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSessionRequest = (name: string) => {
-      if (name === 'Auto-Save (Browser Memory)') return; // Can't delete auto-save via list
+      if (name === 'Auto-Save (Browser Memory)') return; 
       setDialogState({
           isOpen: true,
           type: 'danger',
@@ -440,15 +366,16 @@ const App: React.FC = () => {
   const exportSessionZip = async (sessionName?: string) => {
     const nameToExport = sessionName || `session-${new Date().toISOString().slice(0,10)}`;
     const zip = new JSZip();
-    // Include FULL themeStudioState in Export (ZIPs handle size fine)
     const sessionData: SessionData = { 
-        version: 1, 
+        version: 2, 
         name: nameToExport, 
         timestamp: Date.now(), 
         files, 
         aiPlans, 
         settings,
-        themeStudioState // Exporting Studio State
+        themeStudioState, 
+        conceptCache, 
+        workflowState 
     };
     zip.file("session.json", JSON.stringify(sessionData, null, 2));
     const filesFolder = zip.folder("files");
@@ -475,11 +402,9 @@ const App: React.FC = () => {
       const sanitizedPlans = (data.aiPlans || []).map(p => ({ ...p, blocks: assignUniqueIds(p.blocks || [], `imported-${p.id}`) }));
       setAiPlans(sanitizedPlans);
       setSettings(data.settings);
-
-      // Import Theme Studio State
-      if (data.themeStudioState) {
-          setThemeStudioState(data.themeStudioState);
-      }
+      if (data.themeStudioState) setThemeStudioState(data.themeStudioState);
+      if (data.conceptCache) setConceptCache(data.conceptCache);
+      if (data.workflowState) setWorkflowState(data.workflowState);
 
       setActiveFileId(data.files[0]?.id || '1');
       setShowSessionModal(false);
@@ -511,6 +436,9 @@ const App: React.FC = () => {
         confirmText={dialogState.confirmText}
       />
 
+      {/* Floating Alice Assistant */}
+      <AliceWidget settings={settings} />
+
       {/* Top Navigation Bar */}
       <header 
         className="flex-none border-b border-[var(--border-color)] shadow-md transition-all duration-300"
@@ -529,11 +457,11 @@ const App: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <nav className="flex space-x-1 h-full pt-2">
+            <nav className="flex space-x-1 h-full pt-2 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab(TabId.EDITOR)}
                 className={`
-                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm
+                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm whitespace-nowrap
                   ${activeTab === TabId.EDITOR 
                     ? 'bg-[var(--bg-primary)] border-[var(--border-color)] text-[var(--accent-secondary)] font-medium' 
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'}
@@ -547,7 +475,7 @@ const App: React.FC = () => {
               <button
                 onClick={() => setActiveTab(TabId.SECONDARY)}
                 className={`
-                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm
+                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm whitespace-nowrap
                   ${activeTab === TabId.SECONDARY 
                     ? 'bg-[var(--bg-primary)] border-[var(--border-color)] text-[var(--accent-secondary)] font-medium' 
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'}
@@ -562,9 +490,23 @@ const App: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setActiveTab(TabId.WORKSHOP)}
+                className={`
+                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm whitespace-nowrap
+                  ${activeTab === TabId.WORKSHOP 
+                    ? 'bg-[var(--bg-primary)] border-[var(--border-color)] text-orange-400 font-medium' 
+                    : 'text-[var(--text-secondary)] hover:text-orange-400 hover:bg-[var(--bg-tertiary)]/50'}
+                `}
+                style={activeTab === TabId.WORKSHOP ? texturedBgStyle('--bg-primary', '--bg-primary-tex') : {}}
+              >
+                <WrenchScrewdriverIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Workshop</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab(TabId.SETTINGS)}
                 className={`
-                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm
+                  group flex items-center space-x-2 px-4 py-2 rounded-t-lg border-t border-l border-r border-transparent transition-all backdrop-blur-sm whitespace-nowrap
                   ${activeTab === TabId.SETTINGS 
                     ? 'bg-[var(--bg-primary)] border-[var(--border-color)] text-[var(--accent-secondary)] font-medium' 
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'}
@@ -628,6 +570,21 @@ const App: React.FC = () => {
             setAiPlans={setAiPlans}
             activePlanId={activePlanId}
             setActivePlanId={setActivePlanId}
+          />
+        )}
+
+        {activeTab === TabId.WORKSHOP && (
+          <WorkshopTab
+            settings={settings}
+            conceptCache={conceptCache}
+            setConceptCache={setConceptCache}
+            initialCommunityRequest={communityRequest}
+            clearCommunityRequest={() => setCommunityRequest(null)}
+            workflowState={workflowState}
+            setWorkflowState={setWorkflowState}
+            onInternalNavigate={(to, topic, type) => {
+               if(to === 'community' && topic) setCommunityRequest({ type: type || 'discussion', topic });
+            }}
           />
         )}
 

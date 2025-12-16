@@ -572,7 +572,7 @@ ${code}
         <div className="flex items-center space-x-4">
            <div className="relative group">
             <select value={activeFile.language} onChange={(e) => updateActiveFileLanguage(e.target.value as SupportedLanguage)} className="appearance-none bg-[var(--bg-tertiary)] text-[var(--accent-primary)] text-xs font-semibold px-3 py-1 pr-8 rounded border border-[var(--border-color)] focus:outline-none cursor-pointer hover:border-gray-500">
-              {Object.values(SupportedLanguage).map((lang) => (<option key={lang} value={lang}>{lang.toUpperCase()}</option>))}
+              {Object.values(SupportedLanguage).map((lang) => (<option key={lang} value={lang}>{(lang as string).toUpperCase()}</option>))}
             </select>
             <ChevronDownIcon className="w-3 h-3 absolute right-2 top-1.5 text-[var(--text-secondary)] pointer-events-none" />
           </div>
@@ -661,4 +661,3 @@ ${code}
     </div>
   );
 };
-
