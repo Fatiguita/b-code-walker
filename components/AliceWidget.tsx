@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { AppSettings } from '../types';
+import { AppSettings, EditorFile } from '../types';
 import { MicrophoneIcon, PaperAirplaneIcon, XMarkIcon, SparklesIcon, ChatBubbleLeftRightIcon, TrashIcon } from './Icons';
 
 interface AliceWidgetProps {
   settings: AppSettings;
+  activeFile?: EditorFile;
 }
 
 interface Message {
@@ -15,7 +15,7 @@ interface Message {
 
 const INITIAL_MESSAGE: Message = { role: 'bruno', text: "Hi! I'm Bruno. I can help you clarify code concepts or debug logic. Try speaking or typing!" };
 
-export const AliceWidget: React.FC<AliceWidgetProps> = ({ settings }) => {
+export const AliceWidget: React.FC<AliceWidgetProps> = ({ settings, activeFile }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
@@ -90,11 +90,24 @@ export const AliceWidget: React.FC<AliceWidgetProps> = ({ settings }) => {
 
     try {
       const ai = new GoogleGenAI({ apiKey });
+      
+      const fileContext = activeFile ? `
+CURRENT EDITOR FILE CONTEXT:
+File Name: ${activeFile.name}
+Language: ${activeFile.language}
+Code:
+\`\`\`${activeFile.language}
+${activeFile.content}
+\`\`\`
+` : "No active file open.";
+
       // Keep context short
       const history = messages.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'Bruno'}: ${m.text}`).join('\n');
       const prompt = `
         You are Bruno, a helpful coding assistant in the b-code-walker IDE.
         Be concise, friendly, and helpful. 
+        ${fileContext}
+        
         Conversation History:
         ${history}
         User: ${userMsg}

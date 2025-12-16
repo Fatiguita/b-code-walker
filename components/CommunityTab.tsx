@@ -86,7 +86,9 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
               }
             ]
           }
-          Generate 2 answers. One must be accepted. Use technical jargon appropriate for StackOverflow.
+          Generate from 4 to 6 answers. One must be accepted, and others should vary on tone, some reaffirming on accepted (without mentioning, something like improving etc), others negatives, others with alternatives, etc. Use technical jargon appropriate for StackOverflow coming from different personalities.
+          Remember stack discussion answers are typically straightforward unless necessary.
+
         `;
       } else {
         prompt = `

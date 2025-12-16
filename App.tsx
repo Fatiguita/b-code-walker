@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { EditorTab } from './components/EditorTab';
 import { SettingsTab } from './components/SettingsTab';
@@ -420,6 +419,9 @@ const App: React.FC = () => {
       backgroundBlendMode: 'overlay' 
   });
 
+  // Calculate active file for AliceWidget
+  const activeFile = files.find(f => f.id === activeFileId) || files[0];
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans transition-colors duration-300">
       <style>{`:root { ${getThemeStyles()} }`}</style>
@@ -437,7 +439,7 @@ const App: React.FC = () => {
       />
 
       {/* Floating Alice Assistant */}
-      <AliceWidget settings={settings} />
+      <AliceWidget settings={settings} activeFile={activeFile} />
 
       {/* Top Navigation Bar */}
       <header 
