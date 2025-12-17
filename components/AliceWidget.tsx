@@ -133,10 +133,10 @@ ${activeFile.content}
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end">
+    <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] flex flex-col items-end pointer-events-none">
       {/* Chat Window */}
       {isOpen && (
-        <div className="mb-4 w-80 h-96 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
+        <div className="pointer-events-auto mb-4 w-80 max-w-[90vw] h-96 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
           <div className="p-3 bg-[var(--bg-tertiary)] border-b border-[var(--border-color)] flex justify-between items-center">
              <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -199,7 +199,7 @@ ${activeFile.content}
       {/* Floating Toggle Button */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center relative group"
+        className="pointer-events-auto w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center relative group"
       >
         {isOpen ? <XMarkIcon className="w-6 h-6" /> : <ChatBubbleLeftRightIcon className="w-6 h-6" />}
         {!isOpen && (

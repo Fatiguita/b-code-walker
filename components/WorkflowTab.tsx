@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   WorkflowNode, 
@@ -12,7 +11,8 @@ import {
   PhotoIcon,
   InformationCircleIcon,
   XMarkIcon,
-  WrenchScrewdriverIcon
+  WrenchScrewdriverIcon,
+  PlusIcon
 } from './Icons';
 
 interface WorkflowTabProps {
@@ -48,6 +48,9 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [connectionMode, setConnectionMode] = useState<{ active: boolean; sourceId: string | null }>({ active: false, sourceId: null });
   
+  // TAP-TO-PLACE Mode (Mobile Fix)
+  const [activeTool, setActiveTool] = useState<WorkflowNodeType | null>(null);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -73,27 +76,30 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
     e.dataTransfer.setData('nodeType', type);
   };
 
+  const createNode = (type: WorkflowNodeType, x: number, y: number) => {
+    const newNode: WorkflowNode = {
+        id: Date.now().toString(),
+        type,
+        x: x - 60, // Center approx
+        y: y - 30,
+        label: type === 'start' ? 'Start' : type === 'note' ? 'Comment' : 'New Node',
+        width: 120,
+        height: 60,
+        color: '#1f2937' // Default dark
+      };
+  
+      setNodes(prev => [...prev, newNode]);
+      setSelectedNodeId(newNode.id);
+      setSelectedEdgeId(null);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const type = e.dataTransfer.getData('nodeType') as WorkflowNodeType;
     if (!type || !canvasRef.current) return;
 
     const coords = getCanvasCoordinates(e);
-
-    const newNode: WorkflowNode = {
-      id: Date.now().toString(),
-      type,
-      x: coords.x - 60, // Center approx
-      y: coords.y - 30,
-      label: type === 'start' ? 'Start' : type === 'note' ? 'Comment' : 'New Node',
-      width: 120,
-      height: 60,
-      color: '#1f2937' // Default dark
-    };
-
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-    setSelectedEdgeId(null);
+    createNode(type, coords.x, coords.y);
   };
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -163,7 +169,17 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
     setDraggingControlPoint(null);
   };
 
-  const handleCanvasClick = () => {
+  const handleCanvasClick = (e: React.MouseEvent) => {
+      // Tap-to-Place Logic
+      if (activeTool) {
+          const coords = getCanvasCoordinates(e);
+          createNode(activeTool, coords.x, coords.y);
+          // Optional: Reset active tool after placement, or keep it active for multiple?
+          // Resetting feels more natural for mobile so you don't accidentally spam nodes.
+          setActiveTool(null); 
+          return;
+      }
+
       // Background click
       if (!draggingId && !draggingControlPoint && !didMove) {
           setSelectedNodeId(null);
@@ -481,37 +497,46 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 onClick={exportAsImage}
                 className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-medium transition-colors"
             >
-                <PhotoIcon className="w-4 h-4" /> Export Image
+                <PhotoIcon className="w-4 h-4" /> <span className="hidden sm:inline">Export</span>
             </button>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-            {/* --- Palette Sidebar --- */}
-            <div className="w-60 bg-gray-900 border-r border-gray-800 flex flex-col z-10 shadow-xl">
-                <div className="p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-gray-900/50">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+            {/* --- Palette Sidebar (Desktop) / Toolbar (Mobile) --- */}
+            <div className="order-2 md:order-1 flex-none w-full h-20 md:w-60 md:h-full bg-gray-900 border-t md:border-t-0 md:border-r border-gray-800 flex flex-row md:flex-col z-10 shadow-xl overflow-x-auto md:overflow-y-auto overflow-y-hidden">
+                <div className="hidden md:block p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-gray-900/50 sticky top-0">
                     Symbol Library
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex md:flex-col gap-2 p-2 min-w-max">
                     {NODE_TYPES.map(item => (
                         <div
                             key={item.type}
                             draggable
                             onDragStart={(e) => handleDragStart(e, item.type)}
-                            className="bg-gray-800 border border-gray-700 p-3 rounded cursor-grab hover:bg-gray-700 hover:border-blue-500/50 transition-all group"
+                            onClick={() => setActiveTool(activeTool === item.type ? null : item.type)}
+                            className={`
+                                relative flex flex-col md:flex-row items-center gap-2 bg-gray-800 border p-2 md:p-3 rounded cursor-pointer transition-all min-w-[80px] md:min-w-0
+                                ${activeTool === item.type 
+                                    ? 'border-green-500 ring-1 ring-green-500 bg-gray-800' 
+                                    : 'border-gray-700 hover:bg-gray-700 hover:border-blue-500/50'}
+                            `}
                         >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-8 h-8 flex items-center justify-center text-gray-400 group-hover:text-blue-400">
-                                    {item.shape === 'diamond' && <div className="w-4 h-4 border-2 border-current transform rotate-45" />}
-                                    {item.shape === 'rect' && <div className="w-6 h-4 border-2 border-current rounded-sm" />}
-                                    {item.shape === 'capsule' && <div className="w-6 h-4 border-2 border-current rounded-full" />}
-                                    {item.shape === 'parallelogram' && <div className="w-6 h-4 border-2 border-current transform -skew-x-12" />}
-                                    {item.shape === 'cylinder' && <div className="w-4 h-5 border-2 border-current rounded-[50%/10%]" />}
-                                    {item.shape === 'document' && <div className="w-4 h-5 border-2 border-current rounded-bl-lg" />}
-                                    {item.shape === 'note' && <div className="w-5 h-5 border-2 border-current bg-yellow-900/20" />}
-                                </div>
-                                <span className="text-sm font-medium">{item.label}</span>
+                            <div className={`w-8 h-8 flex items-center justify-center ${activeTool === item.type ? 'text-green-500' : 'text-gray-400'}`}>
+                                {item.shape === 'diamond' && <div className="w-4 h-4 border-2 border-current transform rotate-45" />}
+                                {item.shape === 'rect' && <div className="w-6 h-4 border-2 border-current rounded-sm" />}
+                                {item.shape === 'capsule' && <div className="w-6 h-4 border-2 border-current rounded-full" />}
+                                {item.shape === 'parallelogram' && <div className="w-6 h-4 border-2 border-current transform -skew-x-12" />}
+                                {item.shape === 'cylinder' && <div className="w-4 h-5 border-2 border-current rounded-[50%/10%]" />}
+                                {item.shape === 'document' && <div className="w-4 h-5 border-2 border-current rounded-bl-lg" />}
+                                {item.shape === 'note' && <div className="w-5 h-5 border-2 border-current bg-yellow-900/20" />}
                             </div>
-                            <p className="text-[10px] text-gray-500 leading-tight">{item.description}</p>
+                            <div className="text-center md:text-left">
+                                <span className="text-[10px] md:text-sm font-medium block">{item.label}</span>
+                            </div>
+                            {/* Tap indicator */}
+                            {activeTool === item.type && (
+                                <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse md:hidden" />
+                            )}
                         </div>
                     ))}
                 </div>
@@ -520,13 +545,13 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
             {/* --- Canvas Area --- */}
             <div 
                 ref={canvasRef}
-                className="flex-1 relative bg-gray-950 overflow-hidden cursor-crosshair"
+                className="order-1 md:order-2 flex-1 relative bg-gray-950 overflow-hidden cursor-crosshair touch-none"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onClick={handleCanvasClick}
-                onContextMenu={(e) => e.preventDefault()} // Disable default context menu
+                onContextMenu={(e) => e.preventDefault()}
             >
                 <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20">
                     <defs>
@@ -544,10 +569,6 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 </svg>
 
                 <svg ref={svgRef} className="w-full h-full absolute inset-0">
-                    <defs>
-                        {/* Markers are defined above in the bg svg to ensure they are available globally if needed, or here locally */}
-                    </defs>
-                    
                     <g id="workflow-content" transform={`scale(${zoom})`}>
                         {renderEdges()}
                         {nodes.map(node => (
@@ -580,11 +601,17 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                         {connectionMode.sourceId ? 'Select Target Node' : 'Select Source Node'}
                     </div>
                 )}
+                
+                {activeTool && (
+                     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none animate-pulse">
+                        Tap canvas to place {activeTool}
+                    </div>
+                )}
             </div>
 
             {/* --- Inspector Panel (Right) --- */}
             {(selectedNode || selectedEdge) && (
-                <div className="w-64 bg-gray-900 border-l border-gray-800 p-4 flex flex-col z-10 animate-fade-in shadow-xl h-full">
+                <div className="absolute right-0 top-0 bottom-0 md:relative w-64 bg-gray-900 border-l border-gray-800 p-4 flex flex-col z-30 animate-fade-in shadow-xl h-full overflow-y-auto">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
                         <span className="text-xs font-bold text-gray-500 uppercase">
                             {selectedNode ? 'Node Inspector' : 'Edge Inspector'}
@@ -678,13 +705,6 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                 <TrashIcon className="w-4 h-4" /> Delete {selectedNode ? 'Node' : 'Connection'}
                             </button>
                         </div>
-                    </div>
-                    
-                    <div className="mt-auto pt-4 border-t border-gray-800 text-[10px] text-gray-600">
-                        <p className="flex items-center gap-1 mb-1"><InformationCircleIcon className="w-3 h-3" /> Interaction Guide:</p>
-                        <p>• Left Click: Select Node/Edge</p>
-                        <p>• Right Click: Open Inspector</p>
-                        <p>• Drag Green Handles: Edit Curves</p>
                     </div>
                 </div>
             )}

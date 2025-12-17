@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Prism from 'prismjs';
@@ -21,15 +20,16 @@ import {
   CodeBracketIcon, 
   Square2StackIcon, 
   InformationCircleIcon, 
-  ArrowPathIcon,
-  EyeIcon,
-  XMarkIcon,
-  PencilIcon,
-  CheckIcon,
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon,
-  DocumentTextIcon,
-  ChevronDownIcon
+  ArrowPathIcon, 
+  EyeIcon, 
+  XMarkIcon, 
+  PencilIcon, 
+  CheckIcon, 
+  ArrowsPointingOutIcon, 
+  ArrowsPointingInIcon, 
+  DocumentTextIcon, 
+  ChevronDownIcon,
+  MagnifyingGlassIcon 
 } from './Icons';
 
 interface VisualizerTabProps {
@@ -41,28 +41,17 @@ interface VisualizerTabProps {
 
 /**
  * Helper: Simple Markdown Renderer for Explanation Text
- * Handles paragraphs, **bold**, and `inline code`.
  */
 const renderSimpleMarkdown = (text?: string) => {
   if (!text) return <p className="italic opacity-50 text-xs">No explanation provided.</p>;
-
-  // Split into paragraphs by double newline
   const paragraphs = text.split(/\n\n+/);
-
   return paragraphs.map((paragraph, idx) => {
-    // Process inline bold (**...**) and code (`...`)
-    // Regex matches `code` OR **bold**
     const parts = paragraph.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
-    
     return (
       <p key={idx} className="mb-3 last:mb-0 leading-relaxed">
         {parts.map((part, i) => {
           if (part.startsWith('`') && part.endsWith('`')) {
-            return (
-              <code key={i} className="bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded font-mono text-[0.9em] border border-blue-500/20 mx-0.5">
-                {part.slice(1, -1)}
-              </code>
-            );
+            return <code key={i} className="bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded font-mono text-[0.9em] border border-blue-500/20 mx-0.5">{part.slice(1, -1)}</code>;
           }
           if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={i} className="text-[var(--text-primary)] font-bold">{part.slice(2, -2)}</strong>;
@@ -94,36 +83,82 @@ const MermaidEditor = ({ code, onSave, placeholder }: { code?: string, onSave: (
     }
   };
 
-  const FullscreenModal = () => (
-    createPortal(
+  const FullscreenModal = () => {
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    return createPortal(
       <div className="fixed top-14 left-0 right-0 bottom-0 z-[100] bg-[var(--bg-primary)] flex flex-col animate-fade-in border-t border-[var(--border-color)]">
         {/* Header / Toolbar */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex-none shadow-md">
+        <div className="flex items-center justify-between px-6 py-4 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex-none shadow-md z-20">
           <div className="flex items-center gap-3">
              <Square2StackIcon className="w-6 h-6 text-blue-400" />
              <h3 className="text-lg font-bold text-[var(--text-primary)]">Diagram View</h3>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-4">
+             {/* Zoom Controls */}
+             <div className="flex items-center bg-[var(--bg-tertiary)] rounded-lg border border-[var(--border-color)] p-1">
+                <button onClick={() => setZoom(z => Math.max(0.2, z - 0.2))} className="p-2 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-white" title="Zoom Out">-</button>
+                <span className="w-12 text-center text-xs font-mono">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom(z => Math.min(4, z + 0.2))} className="p-2 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-white" title="Zoom In">+</button>
+                <div className="w-px h-4 bg-[var(--border-color)] mx-1" />
+                <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="p-2 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-white text-xs" title="Reset View">Reset</button>
+             </div>
+
              <button 
                 onClick={() => setIsFullscreen(false)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors border border-[var(--border-color)]"
+                className="flex items-center gap-2 px-3 py-2 rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors border border-[var(--border-color)]"
             >
                 <ArrowsPointingInIcon className="w-4 h-4" />
-                <span className="text-sm font-medium">Exit Full Screen</span>
+                <span className="text-sm font-medium">Exit</span>
             </button>
           </div>
         </div>
         
         {/* Content */}
-        <div className="flex-1 p-8 overflow-auto flex items-center justify-center bg-[var(--bg-primary)]">
-            <div className="w-full h-full min-w-[50%] min-h-[50%] flex items-center justify-center">
-                 <Mermaid chart={code || ''} />
+        <div 
+            className="flex-1 overflow-hidden bg-[var(--bg-primary)] relative cursor-grab active:cursor-grabbing"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+        >
+            <div 
+                className="absolute inset-0 flex items-center justify-center transition-transform duration-75 ease-out origin-center"
+                style={{ 
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                }}
+            >
+                 <div className="pointer-events-none min-w-[50vw]">
+                    <Mermaid chart={code || ''} />
+                 </div>
+            </div>
+            
+            {/* Overlay hint */}
+            <div className="absolute bottom-6 left-6 bg-black/50 text-white/50 text-xs px-3 py-1 rounded backdrop-blur-sm pointer-events-none">
+                Drag to pan • Use buttons to zoom
             </div>
         </div>
       </div>,
       document.body
-    )
-  );
+    );
+  };
 
   if (isEditing) {
     return (

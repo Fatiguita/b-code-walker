@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -223,17 +222,15 @@ export const EditorTab: React.FC<EditorTabProps> = ({
 
   const cancelGeneration = () => { if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null; } setIsGeneratingPlan(false); setAiError("Request cancelled by user"); addLog('error', 'Request cancelled by user'); };
 
+  // ... [AI methods preserved] ...
   const generateAIPlan = async () => {
     if (!aiPrompt) return;
-
-    // BYOK Check
     const apiKey = getApiKey();
     if (!apiKey) {
         setAiError("API Key missing. Please go to Settings and enter your Google GenAI Key.");
         addLog('error', 'API Key Missing. Request blocked.');
         return;
     }
-
     abortControllerRef.current = new AbortController();
     setIsGeneratingPlan(true);
     setAiError(null);
@@ -320,13 +317,9 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   };
 
   const explainCode = async (id: string, code: string, question?: string) => {
-    // BYOK Check
+    // ... [explainCode implementation preserved] ...
     const apiKey = getApiKey();
-    if (!apiKey) {
-        setExplanations(prev => ({ ...prev, [id]: "API Key Missing. Check Settings." }));
-        return;
-    }
-
+    if (!apiKey) { setExplanations(prev => ({ ...prev, [id]: "API Key Missing. Check Settings." })); return; }
     if (explanations[id] && !question) return;
     setExplainingId(id);
     addLog('sending', `Requesting explanation for block ${id}...`);
@@ -335,23 +328,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       let prompt = '';
       if (question) {
          const contextPlan = activePlan ? JSON.stringify({ imports: activePlan.imports, globalExplanation: activePlan.globalExplanation, blocks: activePlan.blocks }, null, 2) : "No full plan context available.";
-         prompt = `
-You are a coding assistant analyzing a specific part of a larger software plan.
-
-FULL PLAN CONTEXT (JSON):
-${contextPlan}
-
-TARGET BLOCK ID: ${id}
-TARGET BLOCK CODE:
-${code}
-
-USER QUESTION: ${question}
-
-Instructions:
-1. Analyze the Target Block in the context of the Full Plan.
-2. Answer the user's question specifically about this block, citing relationships with other blocks if necessary.
-3. Be concise.
-`;
+         prompt = `You are a coding assistant analyzing a specific part of a larger software plan.\n\nFULL PLAN CONTEXT (JSON):\n${contextPlan}\n\nTARGET BLOCK ID: ${id}\nTARGET BLOCK CODE:\n${code}\n\nUSER QUESTION: ${question}\n\nInstructions:\n1. Analyze the Target Block in the context of the Full Plan.\n2. Answer the user's question specifically about this block, citing relationships with other blocks if necessary.\n3. Be concise.`;
       } else { prompt = `Explain this code block simply in one or two sentences:\n\n${code}`; }
       const response = await ai.models.generateContent({ model: settings.activeModel, contents: prompt });
       addLog('response', `Explanation received for block ${id}`);
@@ -363,67 +340,24 @@ Instructions:
   };
 
   const handleAnnotateCode = async (id: string, code: string, language: string) => {
-    // Check API Key
+    // ... [handleAnnotateCode implementation preserved] ...
     const apiKey = getApiKey();
-    if (!apiKey) {
-        setAnnotatedBlocks(prev => ({ ...prev, [id]: "// API Key Missing. Please check settings." }));
-        return;
-    }
-    
-    if (annotatedBlocks[id]) {
-        // Toggle off if already exists
-        setAnnotatedBlocks(prev => { const n = {...prev}; delete n[id]; return n; });
-        return;
-    }
-
+    if (!apiKey) { setAnnotatedBlocks(prev => ({ ...prev, [id]: "// API Key Missing. Please check settings." })); return; }
+    if (annotatedBlocks[id]) { setAnnotatedBlocks(prev => { const n = {...prev}; delete n[id]; return n; }); return; }
     setAnnotatingId(id);
     addLog('sending', `Generating natural language translation for block ${id}...`);
-    
     try {
         const ai = new GoogleGenAI({ apiKey });
-        const prompt = `
-Task: Rewrite the following ${language} code into "Structured Natural Language".
-Objective: Explain what the code does by REPLACING code lines with plain English summaries, but strictly PRESERVING the original indentation and control flow structure.
-
-Rules:
-1. PRESERVE exact indentation and brace style ({ }).
-2. KEEP control flow keywords (if, else, for, while, return, try, catch) to maintain the logic flow.
-3. REPLACE variable assignments, function calls, and logic expressions with concise English sentences describing the action.
-4. Do NOT output valid code. Output readable logic.
-5. Do NOT add extra comments. The English text IS the code.
-
-Example Input:
-  const data = await fetchData();
-  if (data.isValid) {
-    process(data);
-  }
-
-Example Output:
-  Fetch the data from the source
-  if (the data is valid) {
-    Process the data
-  }
-
-Code to Rewrite:
-${code}
-`;
-        const response = await ai.models.generateContent({ 
-            model: settings.activeModel, 
-            contents: prompt 
-        });
-        
+        const prompt = `Task: Rewrite the following ${language} code into "Structured Natural Language".\nObjective: Explain what the code does by REPLACING code lines with plain English summaries, but strictly PRESERVING the original indentation and control flow structure.\n\nRules:\n1. PRESERVE exact indentation and brace style ({ }).\n2. KEEP control flow keywords (if, else, for, while, return, try, catch) to maintain the logic flow.\n3. REPLACE variable assignments, function calls, and logic expressions with concise English sentences describing the action.\n4. Do NOT output valid code. Output readable logic.\n5. Do NOT add extra comments. The English text IS the code.\n\nExample Input:\n  const data = await fetchData();\n  if (data.isValid) {\n    process(data);\n  }\n\nExample Output:\n  Fetch the data from the source\n  if (the data is valid) {\n    Process the data\n  }\n\nCode to Rewrite:\n${code}`;
+        const response = await ai.models.generateContent({ model: settings.activeModel, contents: prompt });
         const result = response.text || "// No response generated.";
-        // Clean up markdown code blocks if present
         const cleanResult = result.replace(/^```[a-z]*\n/i, '').replace(/\n```$/, '');
-        
         setAnnotatedBlocks(prev => ({ ...prev, [id]: cleanResult }));
         addLog('response', `Translation generated for block ${id}`);
     } catch (e: any) {
         addLog('error', `Translation failed for block ${id}`, e.message);
         setAnnotatedBlocks(prev => ({ ...prev, [id]: `// Error generating translation: ${e.message}` }));
-    } finally {
-        setAnnotatingId(null);
-    }
+    } finally { setAnnotatingId(null); }
   };
 
   const toggleBlock = (id: string) => { const newSet = new Set(expandedBlocks); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); setExpandedBlocks(newSet); };
@@ -456,7 +390,7 @@ ${code}
   );
 
   const BlockRenderer: React.FC<{ block: AICodeBlock, level?: number }> = ({ block, level = 0 }) => {
-    // ... [Renderer logic preserved] ...
+    // ... [BlockRenderer implementation preserved] ...
     // Copying logic from previous file content to ensure consistency
     const isExpanded = expandedBlocks.has(block.id);
     const isCodeVisible = visibleCodeBlocks.has(block.id);
@@ -481,7 +415,7 @@ ${code}
                 {hasChildren ? ( <ChevronDownIcon className={`w-3 h-3 text-[var(--text-secondary)] transition-transform ${isExpanded ? '' : '-rotate-90'}`} /> ) : ( <div className="w-1 h-1 rounded-full bg-gray-600" /> )}
              </div>
              <div className="flex flex-col flex-1 min-w-0 justify-center" onClick={() => toggleBlock(block.id)}>
-                <div className="flex items-center gap-2"> <TypeIcon /> <span className={`font-mono text-xs truncate select-none ${isControlFlow ? 'text-purple-300' : 'text-[var(--text-secondary)]'} ${block.type === 'file' ? 'text-[var(--text-primary)]' : ''}`}> {block.signature} </span> </div>
+                <div className="flex items-center gap-2"> <TypeIcon /> <span className={`font-mono text-xs select-none break-all whitespace-pre-wrap ${isControlFlow ? 'text-purple-300' : 'text-[var(--text-secondary)]'} ${block.type === 'file' ? 'text-[var(--text-primary)]' : ''}`}> {block.signature} </span> </div>
                 {block.comment && ( <span className="text-[10px] text-gray-500 ml-6 truncate font-mono italic opacity-70"> // {block.comment} </span> )}
              </div>
              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 ml-2 self-start mt-0.5">
@@ -541,7 +475,7 @@ ${code}
     <div className="flex flex-col h-full bg-[var(--bg-primary)] relative">
       <Dialog isOpen={dialogState.isOpen} type={dialogState.type} title={dialogState.title} message={dialogState.message} onConfirm={dialogState.onConfirm} onClose={closeDialog} />
       {showFind && (
-        <div className="absolute top-10 right-10 z-50 bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-2xl p-2 rounded-md flex items-center space-x-2 w-80">
+        <div className="absolute top-14 right-2 sm:top-10 sm:right-10 z-50 bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-2xl p-2 rounded-md flex items-center space-x-2 w-[calc(100%-1rem)] sm:w-80">
           <MagnifyingGlassIcon className="w-4 h-4 text-[var(--text-secondary)]" />
           <input id="find-input" type="text" placeholder="Find" className="bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-sm px-2 py-1 rounded border border-transparent focus:border-[var(--accent-primary)] focus:outline-none flex-1" value={findText} onChange={(e) => setFindText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(); else findNext(); } }} />
           <div className="text-xs text-[var(--text-secondary)] whitespace-nowrap min-w-[40px] text-center">{totalMatches > 0 ? `${currentMatchIndex + 1} of ${totalMatches}` : 'No results'}</div>
@@ -550,24 +484,32 @@ ${code}
           <button onClick={() => setShowFind(false)} className="p-1 hover:bg-[var(--bg-tertiary)] rounded ml-1"><XMarkIcon className="w-4 h-4 text-[var(--text-secondary)]" /></button>
         </div>
       )}
-      <div ref={menuRef} className="flex-none bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-2 py-1 flex items-center select-none">
+      
+      <div ref={menuRef} className="flex-none bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-2 py-1 flex items-center select-none relative z-50">
         <MenuDropdown label="File" id="file" items={[{ label: 'New File', action: createNewFile }, { label: 'Download File', action: handleDownload }, { divider: true }, { label: 'Close Tab', action: () => closeFile({ stopPropagation: () => {} } as React.MouseEvent, activeFileId) }]} />
         <MenuDropdown label="Edit" id="edit" items={[ { label: 'Undo', action: undo }, { label: 'Redo', action: redo }, { divider: true }, { label: 'Find', action: () => { setShowFind(true); setTimeout(() => document.getElementById('find-input')?.focus(), 50); } }, { divider: true }, { label: 'Copy All', action: () => navigator.clipboard.writeText(activeFile.content) }, { label: 'Paste', action: async () => { try { const text = await navigator.clipboard.readText(); updateActiveFileContent(activeFile.content + text); } catch(e) {} } }, { divider: true }, { label: 'Clear Editor', action: () => { setDialogState({ isOpen: true, type: 'confirm', title: 'Clear Editor', message: "Are you sure you want to clear all content from this file?", onConfirm: () => updateActiveFileContent('') }); } } ]} />
         <MenuDropdown label="View" id="view" items={[{ label: 'Toggle Line Numbers', check: showLineNumbers, action: () => setShowLineNumbers(!showLineNumbers) }, { label: 'Toggle Word Wrap', check: wordWrap, action: () => setWordWrap(!wordWrap) }, { divider: true }, { label: 'Zoom In', action: () => setFontSize(prev => Math.min(prev + 2, 30)) }, { label: 'Zoom Out', action: () => setFontSize(prev => Math.max(prev - 2, 10)) }, { label: 'Reset Zoom', action: () => setFontSize(14) }]} />
       </div>
-      {/* Editor Layout and Content rendering - Keeping existing structure */}
-      <div className="flex-none bg-[var(--bg-secondary)] flex items-center overflow-x-auto no-scrollbar pr-2">
-        {files.map(file => (
-          <div key={file.id} onClick={() => setActiveFileId(file.id)} className={`group flex items-center space-x-2 px-3 py-2 min-w-[120px] max-w-[200px] text-sm cursor-pointer border-r border-[var(--border-color)] select-none ${activeFile.id === file.id ? 'bg-[var(--tab-active)] text-[var(--text-primary)] border-t-2 border-t-[var(--accent-primary)]' : 'bg-[var(--tab-inactive)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`} onDoubleClick={(e) => startRenaming(e, file)}>
-            {editingFileId === file.id ? (
-              <div className="flex items-center gap-1 flex-1 tab-rename-input"> <input autoFocus type="text" value={tempFileName} onChange={(e) => setTempFileName(e.target.value)} onKeyDown={handleRenameKeyDown} onBlur={confirmRename} className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] px-1 rounded text-xs focus:outline-none border border-[var(--accent-primary)]" /> <button onMouseDown={confirmRename} className="text-green-500 hover:text-green-400"><CheckIcon className="w-3 h-3" /></button> </div>
-            ) : ( <> <span className="truncate flex-1">{file.name}</span> {activeFile.id === file.id && ( <button onClick={(e) => startRenaming(e, file)} className="p-0.5 rounded opacity-0 group-hover:opacity-100 text-[var(--text-secondary)] hover:text-[var(--accent-primary)]" title="Rename"><PencilIcon className="w-3 h-3" /></button> )} <button onClick={(e) => closeFile(e, file.id)} className={`p-0.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-[var(--bg-tertiary)] ${files.length === 1 ? 'hidden' : ''}`}><XMarkIcon className="w-3 h-3" /></button> </> )}
-          </div>
-        ))}
-        <button onClick={createNewFile} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors" title="New File"><PlusIcon className="w-4 h-4" /></button>
-        <div className="flex-1"></div>
-        <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center space-x-1 px-3 py-1 text-xs font-medium rounded transition-colors ml-2 ${showAIPanel ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}><SparklesIcon className="w-3 h-3" /><span>Generate Code</span></button>
+      
+      <div className="flex-none bg-[var(--bg-secondary)] flex items-center border-b border-[var(--border-color)]">
+        {/* Scrollable Tabs */}
+        <div className="flex-1 flex items-center overflow-x-auto no-scrollbar pr-2">
+            {files.map(file => (
+            <div key={file.id} onClick={() => setActiveFileId(file.id)} className={`group flex items-center space-x-2 px-3 py-2 min-w-[120px] max-w-[200px] text-sm cursor-pointer border-r border-[var(--border-color)] select-none ${activeFile.id === file.id ? 'bg-[var(--tab-active)] text-[var(--text-primary)] border-t-2 border-t-[var(--accent-primary)]' : 'bg-[var(--tab-inactive)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`} onDoubleClick={(e) => startRenaming(e, file)}>
+                {editingFileId === file.id ? (
+                <div className="flex items-center gap-1 flex-1 tab-rename-input min-w-0"> <input autoFocus type="text" value={tempFileName} onChange={(e) => setTempFileName(e.target.value)} onKeyDown={handleRenameKeyDown} onBlur={confirmRename} className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] px-1 rounded text-xs focus:outline-none border border-[var(--accent-primary)]" /> <button onMouseDown={confirmRename} className="text-green-500 hover:text-green-400 flex-none"><CheckIcon className="w-3 h-3" /></button> </div>
+                ) : ( <> <span className="truncate flex-1">{file.name}</span> {activeFile.id === file.id && ( <button onClick={(e) => startRenaming(e, file)} className="p-0.5 rounded opacity-0 group-hover:opacity-100 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] flex-none" title="Rename"><PencilIcon className="w-3 h-3" /></button> )} <button onClick={(e) => closeFile(e, file.id)} className={`p-0.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-[var(--bg-tertiary)] flex-none ${files.length === 1 ? 'hidden' : ''}`}><XMarkIcon className="w-3 h-3" /></button> </> )}
+            </div>
+            ))}
+            <button onClick={createNewFile} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors flex-none" title="New File"><PlusIcon className="w-4 h-4" /></button>
+        </div>
+
+        {/* Fixed Generate Code Button */}
+        <div className="flex-none px-2 border-l border-[var(--border-color)] bg-[var(--bg-secondary)] z-10">
+            <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center space-x-1 px-3 py-1 text-xs font-medium rounded transition-colors ${showAIPanel ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}><SparklesIcon className="w-3 h-3" /><span>Generate Code</span></button>
+        </div>
       </div>
+
       <div className="flex-none bg-[var(--bg-secondary)] px-4 py-2 flex justify-between items-center border-b border-[var(--border-color)]">
         <div className="flex items-center space-x-4">
            <div className="relative group">
@@ -592,8 +534,11 @@ ${code}
         </div>
         {showAIPanel && (
           <>
-            <div className="w-1 bg-[var(--border-color)] hover:bg-[var(--accent-primary)] cursor-col-resize z-20 flex-none transition-colors" onMouseDown={() => setIsResizing(true)} />
-            <div className="bg-[var(--bg-secondary)] border-l border-[var(--border-color)] flex flex-col" style={{ width: panelWidth }}>
+            <div className="hidden md:block w-1 bg-[var(--border-color)] hover:bg-[var(--accent-primary)] cursor-col-resize z-20 flex-none transition-colors" onMouseDown={() => setIsResizing(true)} />
+            <div 
+               className="bg-[var(--bg-secondary)] border-l border-[var(--border-color)] flex flex-col fixed inset-0 z-50 md:relative md:inset-auto md:z-auto" 
+               style={{ width: window.innerWidth < 768 ? '100%' : panelWidth }}
+            >
               <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] flex justify-between items-center flex-none">
                 <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2"><SparklesIcon className="w-4 h-4 text-[var(--accent-secondary)]" />Code Generator</h2>
                 <div className="flex items-center gap-1"> <button onClick={() => setShowDevMode(!showDevMode)} className={`p-1 rounded transition-colors ${showDevMode ? 'text-green-400 bg-green-400/10' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`} title="Developer Mode (API Logs)"> <CommandLineIcon className="w-4 h-4" /> </button> <button onClick={() => setShowAIPanel(false)} className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><XMarkIcon className="w-4 h-4" /></button> </div>
@@ -605,8 +550,8 @@ ${code}
                 </div>
               )}
               {showDevMode ? (
-                // ... [Dev console rendering logic stays same] ...
                 <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-primary)] font-mono text-xs relative">
+                   {/* ... Dev Mode Content Preserved ... */}
                    <div className="flex-none p-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-tertiary)]"> <div className="flex items-center gap-2 text-green-400 font-bold uppercase tracking-wider"> <CommandLineIcon className="w-4 h-4" /> <span>Dev Console</span> {activePlan && <span className="text-[9px] text-[var(--text-secondary)] bg-[var(--bg-primary)] px-1 rounded">PLAN: {activePlan?.name}</span>} </div> <div className="flex items-center gap-2"> <span className="text-[10px] text-[var(--text-secondary)]">Advanced Config</span> <button onClick={() => setShowAdvancedConfig(!showAdvancedConfig)} className={`w-8 h-4 rounded-full relative transition-colors ${showAdvancedConfig ? 'bg-green-500' : 'bg-gray-600'}`}> <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showAdvancedConfig ? 'translate-x-4' : ''}`} /> </button> </div> </div>
                    <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
                     {showAdvancedConfig && (
@@ -622,9 +567,10 @@ ${code}
                    <div className="flex-none flex flex-col bg-black border-t border-gray-800 transition-all" style={{ height: logsHeight }}> <div className="flex-none p-1 bg-gray-900 flex justify-between items-center px-2 cursor-row-resize" onMouseDown={() => setIsResizingLogs(true)}> <span className="text-gray-500 font-bold text-[10px] flex items-center gap-2"> <ArrowsPointingOutIcon className="w-3 h-3 rotate-45" /> Real-time API Logs {activePlanId ? '(History)' : '(Live)'} </span> <button onClick={() => { if (activePlanId) { setAiPlans(prev => prev.map(p => p.id === activePlanId ? { ...p, logs: [] } : p)); } else { setDraftLogs([]); logsAccumulator.current = []; } }} className="text-[10px] text-gray-500 hover:text-white"> Clear </button> </div> <div className="flex-1 overflow-y-auto p-2 space-y-2"> {activeLogs.map((log, idx) => ( <div key={idx} className="flex flex-col gap-0.5 border-l-2 pl-2" style={{ borderColor: log.stage === 'error' ? '#ef4444' : log.stage === 'sending' ? '#3b82f6' : log.stage === 'response' ? '#10b981' : '#6b7280' }}> <div className="flex items-center gap-2 text-[9px] text-gray-500"> <span className="uppercase">{log.stage}</span> <span>{log.time}</span> </div> <div className="text-[10px] text-gray-300 truncate">{log.message}</div> {log.data && ( <details className="mt-1 group/details"> <summary className="cursor-pointer text-[9px] text-[var(--accent-secondary)] hover:text-white select-none flex items-center gap-1 w-fit"> <ChevronDownIcon className="w-2.5 h-2.5 transition-transform group-open/details:rotate-180" /> <span>View Content</span> </summary> <div className="mt-1 p-1 bg-gray-900 rounded border border-gray-800"> <pre className="text-[9px] text-green-300 overflow-x-auto whitespace-pre-wrap font-mono"> {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)} </pre> </div> </details> )} </div> ))} <div ref={logsEndRef} /> </div> </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={sidebarRef}>
+                <div className="flex-1 overflow-y-auto overflow-x-auto p-4 space-y-4" ref={sidebarRef}>
                   {activePlanId === null && (
                     <div className="space-y-3 animate-fade-in">
+                        {/* ... Input Fields Preserved ... */}
                       <div className="text-xs font-mono text-gray-500 mb-2 flex items-center justify-between"> <span>Model: <span className="text-[var(--accent-secondary)]">{settings.activeModel}</span></span> <span className={`text-[10px] ${getApiKey() ? 'text-green-500' : 'text-red-500'} font-bold`}>{getApiKey() ? 'API Key Active' : 'API Key Missing'}</span> </div>
                       <div className="flex items-center justify-between p-2 bg-[var(--bg-tertiary)] rounded border border-[var(--border-color)]"> <div className="flex items-center gap-2"> <Square2StackIcon className={`w-4 h-4 ${isProjectMode ? 'text-[var(--accent-primary)]' : 'text-gray-500'}`} /> <span className="text-xs font-medium">Modular Project</span> </div> <label className="relative inline-flex items-center cursor-pointer"> <input type="checkbox" className="sr-only peer" checked={isProjectMode} onChange={(e) => setIsProjectMode(e.target.checked)} /> <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div> </label> </div>
                       <div> <label className="block text-xs text-[var(--text-secondary)] mb-1">Instruction</label> <textarea className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none resize-y min-h-[80px]" placeholder={isProjectMode ? "e.g. Create a Todo App with components/TodoItem.tsx, utils/api.ts..." : "e.g. Create a React hook for fetching user data..."} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} /> </div>

@@ -458,8 +458,8 @@ const App: React.FC = () => {
               <h1 className="font-bold text-lg tracking-tight hidden sm:block text-[var(--text-primary)] drop-shadow-sm">b-code-walker</h1>
             </div>
 
-            {/* Tabs */}
-            <nav className="flex space-x-1 h-full pt-2 overflow-x-auto no-scrollbar">
+            {/* Desktop Tabs (Hidden on Mobile) */}
+            <nav className="hidden md:flex space-x-1 h-full pt-2 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab(TabId.EDITOR)}
                 className={`
@@ -471,7 +471,7 @@ const App: React.FC = () => {
                 style={activeTab === TabId.EDITOR ? texturedBgStyle('--bg-primary', '--bg-primary-tex') : {}}
               >
                 <CodeBracketIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Editor</span>
+                <span>Editor</span>
               </button>
 
               <button
@@ -485,7 +485,7 @@ const App: React.FC = () => {
                 style={activeTab === TabId.SECONDARY ? texturedBgStyle('--bg-primary', '--bg-primary-tex') : {}}
               >
                 <Square2StackIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Visualizer</span>
+                <span>Visualizer</span>
                 {aiPlans.length > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 bg-[var(--accent-primary)] text-white text-[10px] rounded-full shadow-sm">{aiPlans.length}</span>
                 )}
@@ -502,7 +502,7 @@ const App: React.FC = () => {
                 style={activeTab === TabId.WORKSHOP ? texturedBgStyle('--bg-primary', '--bg-primary-tex') : {}}
               >
                 <WrenchScrewdriverIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Workshop</span>
+                <span>Workshop</span>
               </button>
 
               <button
@@ -516,7 +516,7 @@ const App: React.FC = () => {
                 style={activeTab === TabId.SETTINGS ? texturedBgStyle('--bg-primary', '--bg-primary-tex') : {}}
               >
                 <Cog6ToothIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Settings</span>
+                <span>Settings</span>
               </button>
             </nav>
           </div>
@@ -528,7 +528,7 @@ const App: React.FC = () => {
                 className="flex items-center gap-2 px-3 py-1 bg-[var(--bg-tertiary)]/80 hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--accent-secondary)] rounded border border-[var(--border-color)] text-xs font-medium transition-colors backdrop-blur-sm"
              >
                 <DocumentTextIcon className="w-4 h-4" />
-                <span>Sessions</span>
+                <span className="hidden sm:inline">Sessions</span>
              </button>
 
              <div className="flex items-center bg-[var(--bg-tertiary)]/80 rounded-md border border-[var(--border-color)] px-2 py-1 backdrop-blur-sm">
@@ -536,7 +536,7 @@ const App: React.FC = () => {
                 <select 
                   value={settings.activeModel}
                   onChange={(e) => setSettings({...settings, activeModel: e.target.value as AIModelId})}
-                  className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer border-none font-medium min-w-[140px]"
+                  className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer border-none font-medium min-w-[50px] sm:min-w-[140px]"
                 >
                   <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                   <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
@@ -549,7 +549,7 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main 
-        className="flex-1 overflow-hidden relative"
+        className="flex-1 overflow-hidden relative pb-16 md:pb-0"
         style={texturedBgStyle('--bg-primary', '--bg-primary-tex')}
       >
         {activeTab === TabId.EDITOR && (
@@ -601,9 +601,47 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* Mobile Bottom Navigation (Visible only on small screens) */}
+      <nav 
+        className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] flex justify-around items-center z-[50]"
+        style={texturedBgStyle('--bg-secondary', '--bg-secondary-tex')}
+      >
+          <button 
+             onClick={() => setActiveTab(TabId.EDITOR)}
+             className={`flex flex-col items-center justify-center w-full h-full ${activeTab === TabId.EDITOR ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-secondary)]'}`}
+          >
+             <CodeBracketIcon className="w-6 h-6 mb-1" />
+             <span className="text-[10px]">Code</span>
+          </button>
+          <button 
+             onClick={() => setActiveTab(TabId.SECONDARY)}
+             className={`flex flex-col items-center justify-center w-full h-full relative ${activeTab === TabId.SECONDARY ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-secondary)]'}`}
+          >
+             <Square2StackIcon className="w-6 h-6 mb-1" />
+             <span className="text-[10px]">Visuals</span>
+             {aiPlans.length > 0 && (
+                <span className="absolute top-2 right-4 w-2 h-2 bg-[var(--accent-primary)] rounded-full" />
+             )}
+          </button>
+          <button 
+             onClick={() => setActiveTab(TabId.WORKSHOP)}
+             className={`flex flex-col items-center justify-center w-full h-full ${activeTab === TabId.WORKSHOP ? 'text-orange-400' : 'text-[var(--text-secondary)]'}`}
+          >
+             <WrenchScrewdriverIcon className="w-6 h-6 mb-1" />
+             <span className="text-[10px]">Workshop</span>
+          </button>
+          <button 
+             onClick={() => setActiveTab(TabId.SETTINGS)}
+             className={`flex flex-col items-center justify-center w-full h-full ${activeTab === TabId.SETTINGS ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-secondary)]'}`}
+          >
+             <Cog6ToothIcon className="w-6 h-6 mb-1" />
+             <span className="text-[10px]">Settings</span>
+          </button>
+      </nav>
+
       {/* Session Management Modal */}
       {showSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
            <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
               <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-tertiary)]">
                  <h3 className="font-bold text-[var(--text-primary)]">Session Manager</h3>

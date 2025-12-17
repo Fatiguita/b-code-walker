@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -14,13 +13,13 @@ import {
   XMarkIcon, 
   TrophyIcon, 
   ArrowPathIcon, 
-  ChevronDownIcon,
-  AcademicCapIcon,
-  LightBulbIcon,
-  PuzzlePieceIcon,
-  BeakerIcon,
-  UserGroupIcon,
-  NewspaperIcon
+  ChevronDownIcon, 
+  AcademicCapIcon, 
+  LightBulbIcon, 
+  PuzzlePieceIcon, 
+  BeakerIcon, 
+  UserGroupIcon, 
+  NewspaperIcon 
 } from './Icons';
 
 interface BugHuntTabProps {
@@ -324,7 +323,7 @@ export const BugHuntTab: React.FC<BugHuntTabProps> = ({ settings, onNavigateToCo
         {activeMode === 'concepts' && (
            <div className="flex flex-col md:flex-row gap-6 h-full min-h-[500px]">
               {/* Left: Concept List */}
-              <div className="w-full md:w-1/3 bg-gray-900/50 border border-gray-700 rounded-xl p-4 overflow-y-auto">
+              <div className="w-full md:w-80 min-w-[20rem] flex-shrink-0 bg-gray-900/50 border border-gray-700 rounded-xl p-4 overflow-y-auto">
                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 sticky top-0 bg-gray-900/90 p-2 z-10 backdrop-blur-sm border-b border-gray-700">
                     <LightBulbIcon className="w-4 h-4 text-yellow-500" /> Topic Library
                  </h3>
@@ -513,19 +512,19 @@ export const BugHuntTab: React.FC<BugHuntTabProps> = ({ settings, onNavigateToCo
 
                  {/* Editor Arena */}
                  <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-                    <div className="flex-1 bg-black/80 border border-green-500/30 rounded-lg overflow-hidden flex flex-col relative shadow-2xl">
+                    <div className="flex-1 bg-black/80 border border-green-500/30 rounded-lg overflow-hidden flex flex-col relative shadow-2xl min-h-[400px]">
                        <div className="flex-none bg-green-900/10 border-b border-green-500/20 p-2 text-xs flex justify-between text-gray-400 font-mono">
                           <span>buggy_code.{currentLevel.language === 'javascript' ? 'js' : 'txt'}</span>
                           <span className="animate-pulse text-green-500">EDITABLE</span>
                        </div>
-                       <div className="flex-1 overflow-auto relative">
+                       <div className="flex-1 overflow-auto relative h-full">
                           <Editor
                             value={userCode}
                             onValueChange={setUserCode}
                             highlight={highlight}
                             padding={20}
-                            className="font-mono text-sm leading-relaxed"
-                            textareaClassName="focus:outline-none"
+                            className="font-mono text-sm leading-relaxed h-full"
+                            textareaClassName="focus:outline-none h-full"
                             style={{
                               fontFamily: '"Fira Code", monospace',
                               minHeight: '100%',
@@ -581,4 +580,3 @@ export const BugHuntTab: React.FC<BugHuntTabProps> = ({ settings, onNavigateToCo
     </div>
   );
 };
-
