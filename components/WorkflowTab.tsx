@@ -49,6 +49,9 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   // TAP-TO-PLACE Mode (Mobile Fix)
   const [activeTool, setActiveTool] = useState<WorkflowNodeType | null>(null);
 
+  // Mobile Long Press Logic
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -130,6 +133,12 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    // If moving, cancel any pending long press (for mouse users mostly, touch handled separately)
+    if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+    }
+
     if (draggingId) {
         // Calculate delta in zoom-independent screen pixels, then divide by zoom
         const dx = (e.clientX - dragStartPos.x) / zoom;
@@ -165,6 +174,36 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
     
     setDraggingId(null);
     setDraggingControlPoint(null);
+  };
+
+  // --- Mobile Touch Handlers ---
+  const handleNodeTouchStart = (id: string) => {
+      // Start long press timer
+      longPressTimer.current = setTimeout(() => {
+          // Trigger Selection / Context Menu equivalent
+          setSelectedNodeId(id);
+          setSelectedEdgeId(null);
+          // Haptic feedback if available
+          if (navigator.vibrate) navigator.vibrate(50);
+          
+          longPressTimer.current = null;
+      }, 600); 
+  };
+
+  const handleNodeTouchMove = () => {
+      // If user moves finger (scrolls or drags), cancel long press
+      if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+      }
+  };
+
+  const handleNodeTouchEnd = () => {
+      if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+          // Normal tap actions are usually handled by onClick or MouseUp that often fire after touch
+      }
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -574,6 +613,9 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                 key={node.id} 
                                 transform={`translate(${node.x},${node.y})`}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                                onTouchStart={() => handleNodeTouchStart(node.id)}
+                                onTouchMove={handleNodeTouchMove}
+                                onTouchEnd={handleNodeTouchEnd}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
