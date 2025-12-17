@@ -28,8 +28,7 @@ import {
   ArrowsPointingOutIcon, 
   ArrowsPointingInIcon, 
   DocumentTextIcon, 
-  ChevronDownIcon,
-  MagnifyingGlassIcon 
+  ChevronDownIcon
 } from './Icons';
 
 interface VisualizerTabProps {
