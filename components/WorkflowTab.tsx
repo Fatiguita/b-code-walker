@@ -9,10 +9,8 @@ import {
   ArrowPathIcon, 
   TrashIcon, 
   PhotoIcon,
-  InformationCircleIcon,
   XMarkIcon,
   WrenchScrewdriverIcon,
-  PlusIcon
 } from './Icons';
 
 interface WorkflowTabProps {
