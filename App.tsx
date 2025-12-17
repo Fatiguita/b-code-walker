@@ -33,6 +33,53 @@ const App: React.FC = () => {
   // Cross-Tab Communication
   const [communityRequest, setCommunityRequest] = useState<{ type: 'discussion' | 'blog'; topic: string } | null>(null);
 
+  // --- Mobile Immersive Mode State ---
+  const [immersiveMode, setImmersiveMode] = useState(false);
+  const activityTimer = useRef<any>(null);
+
+  const startImmersiveTimer = () => {
+      if (activityTimer.current) clearTimeout(activityTimer.current);
+      if (window.innerWidth >= 768) {
+          setImmersiveMode(false);
+          return;
+      }
+      
+      activityTimer.current = setTimeout(() => {
+          setImmersiveMode(true);
+      }, 4000); // 4 seconds before hiding
+  };
+
+  const handleZoneInteraction = (e: TouchEvent | MouseEvent) => {
+      // Only care about mobile
+      if (window.innerWidth >= 768) return;
+
+      const y = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const h = window.innerHeight;
+      
+      // Wake up zones: Top 80px (Header) or Bottom 80px (Nav)
+      // If user touches purely in the middle (editor/visualizer), we DO NOT reset the timer.
+      // This allows the bars to disappear while the user is working.
+      if (y < 80 || y > h - 80) {
+          setImmersiveMode(false);
+          startImmersiveTimer();
+      }
+  };
+
+  useEffect(() => {
+      // Initial start
+      startImmersiveTimer();
+
+      // We listen to touchstart/mousemove to detect where the user is interacting
+      window.addEventListener('touchstart', handleZoneInteraction);
+      window.addEventListener('mousemove', handleZoneInteraction);
+      
+      return () => {
+          window.removeEventListener('touchstart', handleZoneInteraction);
+          window.removeEventListener('mousemove', handleZoneInteraction);
+          if(activityTimer.current) clearTimeout(activityTimer.current);
+      };
+  }, []);
+
   // --- Global State Lifted from Editor ---
   // Default to empty new file
   const [files, setFiles] = useState<EditorFile[]>([
@@ -443,7 +490,7 @@ const App: React.FC = () => {
 
       {/* Top Navigation Bar */}
       <header 
-        className="flex-none border-b border-[var(--border-color)] shadow-md transition-all duration-300"
+        className={`flex-none border-b border-[var(--border-color)] shadow-md transition-all duration-500 ease-in-out z-40 ${immersiveMode ? '-mt-14 opacity-0 pointer-events-none' : 'mt-0 opacity-100'}`}
         style={texturedBgStyle('--bg-secondary', '--bg-secondary-tex')}
       >
         <div className="flex items-center justify-between px-4 h-14 bg-transparent">
@@ -549,7 +596,7 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main 
-        className="flex-1 overflow-hidden relative pb-16 md:pb-0"
+        className={`flex-1 overflow-hidden relative transition-all duration-500 ease-in-out ${immersiveMode ? 'pb-0' : 'pb-16'} md:pb-0`}
         style={texturedBgStyle('--bg-primary', '--bg-primary-tex')}
       >
         {activeTab === TabId.EDITOR && (
@@ -603,7 +650,7 @@ const App: React.FC = () => {
 
       {/* Mobile Bottom Navigation (Visible only on small screens) */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] flex justify-around items-center z-[50]"
+        className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] flex justify-around items-center z-[50] transition-all duration-500 ease-in-out ${immersiveMode ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}
         style={texturedBgStyle('--bg-secondary', '--bg-secondary-tex')}
       >
           <button 
