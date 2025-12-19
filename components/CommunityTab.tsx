@@ -18,7 +18,10 @@ import {
   CheckIcon,
   ChevronUpIcon,
   ArrowDownTrayIcon,
-  PrinterIcon
+  PrinterIcon,
+  PaperAirplaneIcon,
+  SparklesIcon,
+  ChatBubbleLeftRightIcon
 } from './Icons';
 
 interface CommunityTabProps {
@@ -27,14 +30,16 @@ interface CommunityTabProps {
   clearInitialRequest: () => void;
 }
 
-// Fixed: Moved PrintPortal outside of CommunityTab to resolve TS error: 
-// "Property 'children' is missing in type '{}' but required in type '{ children: React.ReactNode; }'"
-// This also prevents unnecessary re-creation of the component on every render of the parent.
-/**
- * PRINT PORTAL
- * Renders a clean, light-mode version of the content specifically for the print media query.
- * This portal sits at document.body level, bypassing all parent overflow:hidden constraints.
- */
+interface Comment {
+  id: string;
+  user: string;
+  content: string;
+  time: string;
+  isUser: boolean;
+  replies?: Comment[]; // Level 3 hierarchy
+}
+
+// Helper to render portal for printing
 const PrintPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return createPortal(
     <div className="print-portal-root">
@@ -50,6 +55,16 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
   const [content, setContent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Level 2 Input State (Comment on Answer)
+  const [answerCommentInputs, setAnswerCommentInputs] = useState<Record<number, string>>({});
+  
+  // Level 3 Input State (Reply to Comment)
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null); // The ID of the comment being replied to
+  const [threadReplyInput, setThreadReplyInput] = useState('');
+  
+  // Processing States
+  const [processingId, setProcessingId] = useState<string | number | null>(null); // Can be answer index (number) or comment id (string)
 
   // Auto-trigger if initialRequest is present
   useEffect(() => {
@@ -75,6 +90,8 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
     setIsLoading(true);
     setError(null);
     setContent(null);
+    setAnswerCommentInputs({});
+    setActiveReplyId(null);
 
     try {
       const ai = new GoogleGenAI({ apiKey });
@@ -95,6 +112,7 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
             },
             "answers": [
               {
+                "id": "unique_id_1",
                 "votes": "Number",
                 "user": "Username",
                 "time": "Time ago",
@@ -103,9 +121,7 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
               }
             ]
           }
-          Generate from 4 to 6 answers. One must be accepted, and others should vary on tone, some reaffirming on accepted (without mentioning, something like improving etc), others negatives, others with alternatives, etc. Use technical jargon appropriate for StackOverflow coming from different personalities.
-          Remember stack discussion answers are typically straightforward unless necessary.
-
+          Generate from 4 to 6 answers. One must be accepted. Vary tones (helpful, pedantic, alternative solutions).
         `;
       } else {
         prompt = `
@@ -131,13 +147,236 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
 
       const text = response.text || "{}";
       const cleanText = text.replace(/```json|```/g, '').trim();
-      setContent(JSON.parse(cleanText));
+      const parsedContent = JSON.parse(cleanText);
+
+      // Initialize comments & votes for discussion mode
+      if (mode === 'discussion') {
+         if (parsedContent.question) {
+             parsedContent.question.userVote = 0; // 0 = none, 1 = up, -1 = down
+             parsedContent.question.votes = parseInt(parsedContent.question.votes) || 0;
+         }
+         if (parsedContent.answers) {
+             parsedContent.answers.forEach((ans: any) => {
+                 ans.comments = []; 
+                 ans.userVote = 0;
+                 ans.votes = parseInt(ans.votes) || 0;
+             });
+         }
+      }
+
+      setContent(parsedContent);
 
     } catch (e: any) {
       setError("Failed to generate content. " + e.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Voting Logic (Just for fun local state)
+   */
+  const handleVote = (type: 'question' | 'answer', direction: 1 | -1, index?: number) => {
+      if (!content) return;
+      const newContent = { ...content };
+
+      if (type === 'question') {
+          const currentVote = newContent.question.userVote || 0;
+          let voteCount = newContent.question.votes;
+
+          if (currentVote === direction) {
+              // Toggle off
+              newContent.question.userVote = 0;
+              voteCount -= direction;
+          } else {
+              // Switch or add
+              voteCount += direction - currentVote;
+              newContent.question.userVote = direction;
+          }
+          newContent.question.votes = voteCount;
+      } else if (type === 'answer' && typeof index === 'number') {
+          const ans = newContent.answers[index];
+          const currentVote = ans.userVote || 0;
+          let voteCount = ans.votes;
+
+          if (currentVote === direction) {
+              ans.userVote = 0;
+              voteCount -= direction;
+          } else {
+              voteCount += direction - currentVote;
+              ans.userVote = direction;
+          }
+          ans.votes = voteCount;
+      }
+
+      setContent(newContent);
+  };
+
+  /**
+   * LEVEL 2 INTERACTION: Commenting on an Answer
+   * Effect: Random community members (and potentially the author) respond.
+   */
+  const handlePostAnswerComment = async (answerIndex: number) => {
+    const userText = answerCommentInputs[answerIndex];
+    if (!userText || !userText.trim()) return;
+
+    // 1. Add User Comment Locally
+    const updatedContent = { ...content };
+    const targetAnswer = updatedContent.answers[answerIndex];
+    
+    // Safety check
+    if (!targetAnswer.comments) targetAnswer.comments = [];
+
+    const newCommentId = Date.now().toString();
+    targetAnswer.comments.push({
+        id: newCommentId,
+        user: 'You',
+        content: userText,
+        time: 'Just now',
+        isUser: true,
+        replies: []
+    });
+
+    setContent(updatedContent);
+    setAnswerCommentInputs(prev => ({ ...prev, [answerIndex]: '' })); 
+    setProcessingId(answerIndex);
+
+    const apiKey = getApiKey();
+    if (!apiKey) { setProcessingId(null); return; }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        
+        // Gather existing participants for context
+        const threadParticipants = new Set<string>();
+        if (content.question?.user) threadParticipants.add(content.question.user);
+        if (content.answers) {
+            content.answers.forEach((a: any) => {
+                if (a.user) threadParticipants.add(a.user);
+            });
+        }
+        const participantList = Array.from(threadParticipants).join(', ');
+
+        const prompt = `
+            Simulation Context: A tech forum discussion.
+            Topic: ${content.title}
+            
+            Existing Thread Participants: [${participantList}]
+            The Answer Author ("${targetAnswer.user}") wrote: "${targetAnswer.content.substring(0, 150)}..."
+            
+            A User ("You") just commented on this answer: "${userText}"
+            
+            Task: Generate between 1 and 7 distinct replies to the User's comment.
+            
+            Rules for Repliers:
+            1. MIX: You MUST use a mix of existing users from the "Thread Participants" list (to show continuity) AND random new users (e.g. 'ModBot', 'Passerby', 'SeniorDev', 'RustFan').
+            2. VARIETY: If the user's comment is wrong/incomplete, include a 'ModBot' or strict user correcting them. If it's good, include helpful peers.
+            3. LENGTH: Keep replies short (1-2 sentences).
+            4. RANDOMNESS: Do not always output 2. Sometimes 1, sometimes 5. Make it feel organic.
+            
+            Output strictly JSON Array:
+            [
+              { "user": "Username", "reply": "Content" }
+            ]
+        `;
+
+        const response = await ai.models.generateContent({
+            model: settings.activeModel,
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        
+        const repliesJson = JSON.parse(response.text || '[]');
+        
+        if (Array.isArray(repliesJson)) {
+            repliesJson.forEach((r: any, idx: number) => {
+                 targetAnswer.comments.push({
+                    id: (Date.now() + idx + 1).toString(),
+                    user: r.user,
+                    content: r.reply,
+                    time: 'Just now',
+                    isUser: false,
+                    replies: []
+                });
+            });
+            setContent({ ...updatedContent });
+        }
+    } catch (e) {
+        console.error("Failed to generate community reply", e);
+    } finally {
+        setProcessingId(null);
+    }
+  };
+
+  /**
+   * LEVEL 3 INTERACTION: Replying to a specific Comment
+   * Effect: Only the specific author of the parent comment responds.
+   */
+  const handlePostThreadReply = async (answerIndex: number, parentCommentId: string, parentAuthor: string, parentContent: string) => {
+      if (!threadReplyInput.trim()) return;
+
+      const updatedContent = { ...content };
+      const targetAnswer = updatedContent.answers[answerIndex];
+      const targetComment = targetAnswer.comments.find((c: Comment) => c.id === parentCommentId);
+
+      if (!targetComment) return;
+      if (!targetComment.replies) targetComment.replies = [];
+
+      // Add User Reply
+      targetComment.replies.push({
+          id: Date.now().toString(),
+          user: 'You',
+          content: threadReplyInput,
+          time: 'Just now',
+          isUser: true
+      });
+
+      setContent(updatedContent);
+      setThreadReplyInput(''); // Clear input, keep box open or close? Let's keep open for flow
+      setProcessingId(parentCommentId);
+
+      const apiKey = getApiKey();
+      if (!apiKey) { setProcessingId(null); return; }
+
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `
+            Roleplay Task: You are strictly the user "${parentAuthor}".
+            You wrote the comment: "${parentContent}".
+            
+            A user replied to you directly: "${threadReplyInput}".
+            
+            Task: Reply back to the user.
+            - Stay in character as "${parentAuthor}".
+            - Keep it conversational and brief.
+            
+            Output strictly JSON: { "reply": "Your response here" }
+        `;
+
+        const response = await ai.models.generateContent({
+            model: settings.activeModel,
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        
+        const replyJson = JSON.parse(response.text || '{}');
+        
+        if (replyJson.reply) {
+            targetComment.replies.push({
+                id: (Date.now() + 1).toString(),
+                user: parentAuthor,
+                content: replyJson.reply,
+                time: 'Just now',
+                isUser: false
+            });
+            setContent({ ...updatedContent });
+        }
+
+      } catch (e) {
+          console.error("Failed to generate thread reply", e);
+      } finally {
+          setProcessingId(null);
+      }
   };
 
   const handleDownloadMarkdown = () => {
@@ -162,7 +401,20 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
       content.answers.forEach((ans: any) => {
           mdContent += `### Answer by ${ans.user} ${ans.accepted ? '✅' : ''}\n`;
           mdContent += `**Votes:** ${ans.votes}\n\n`;
-          mdContent += `${ans.content}\n\n---\n\n`;
+          mdContent += `${ans.content}\n\n`;
+          
+          if (ans.comments && ans.comments.length > 0) {
+              mdContent += `#### Comments\n`;
+              ans.comments.forEach((c: Comment) => {
+                  mdContent += `- **${c.user}**: ${c.content}\n`;
+                  if (c.replies) {
+                      c.replies.forEach(r => {
+                          mdContent += `  - **${r.user}**: ${r.content}\n`;
+                      });
+                  }
+              });
+          }
+          mdContent += `\n---\n\n`;
       });
     }
 
@@ -183,12 +435,10 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
 
   /**
    * Robust Markdown Renderer
-   * Handles Code Blocks, Headers, Lists, and Bold Text
    */
   const renderMarkdown = (md: string, theme: 'dark' | 'light') => {
     if (!md) return null;
 
-    // Helper to parse inline styles (bold, code)
     const parseInline = (text: string) => {
         const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
         return parts.map((part, i) => {
@@ -202,11 +452,9 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
         });
     };
 
-    // Split content by code blocks first
     const sections = md.split(/(```[\s\S]*?```)/g);
 
     return sections.map((section, idx) => {
-      // 1. Code Block Rendering
       if (section.startsWith('```')) {
         const match = section.match(/```(\w*)\n([\s\S]*?)```/);
         const lang = match && match[1] ? match[1] : 'javascript';
@@ -220,20 +468,17 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
         );
       }
 
-      // 2. Text Content Rendering (Headers, Lists, Paragraphs)
       const lines = section.split('\n');
       return (
           <div key={idx}>
               {lines.map((line, lIdx) => {
                   const trimmed = line.trim();
-                  if (!trimmed) return <div key={lIdx} className="h-2" />; // Spacer
+                  if (!trimmed) return <div key={lIdx} className="h-2" />;
 
-                  // Headers
                   if (line.startsWith('### ')) return <h3 key={lIdx} className={`text-lg font-bold mt-6 mb-2 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}>{parseInline(line.slice(4))}</h3>;
                   if (line.startsWith('## ')) return <h2 key={lIdx} className={`text-xl font-bold mt-8 mb-3 pb-1 border-b ${theme === 'dark' ? 'text-white border-gray-700' : 'text-gray-900 border-gray-200'}`}>{parseInline(line.slice(3))}</h2>;
                   if (line.startsWith('# ')) return <h1 key={lIdx} className={`text-2xl font-bold mt-8 mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{parseInline(line.slice(2))}</h1>;
 
-                  // List Items
                   if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
                       return (
                           <div key={lIdx} className="flex gap-3 mb-2 ml-2">
@@ -242,8 +487,6 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
                           </div>
                       );
                   }
-
-                  // Standard Paragraph
                   return <p key={lIdx} className={`mb-3 leading-relaxed ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{parseInline(line)}</p>;
               })}
           </div>
@@ -251,49 +494,18 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
     });
   };
 
-  /**
-   * PRINT PORTAL
-   * Renders a clean, light-mode version of the content specifically for the print media query.
-   * This portal sits at document.body level, bypassing all parent overflow:hidden constraints.
-   */
-  // (Component moved outside to fix duplicate declaration and TS error)
-
   return (
     <div className="flex flex-col h-full bg-gray-950 text-gray-200 font-sans relative overflow-hidden">
        
-       {/* PRINT CSS - Force layout reset */}
        <style>{`
           @media screen {
             .print-portal-root { display: none; }
           }
           @media print {
-            /* Hide the entire App React Root */
             #root { display: none !important; }
-            
-            /* Reset Page settings */
             @page { margin: 1cm; size: auto; }
-            html, body { 
-              margin: 0 !important; 
-              padding: 0 !important; 
-              background: white !important; 
-              height: auto !important; 
-              overflow: visible !important; 
-            }
-
-            /* Show and style the Portal */
-            .print-portal-root { 
-              display: block !important; 
-              position: absolute; 
-              top: 0; 
-              left: 0; 
-              width: 100%; 
-              background: white; 
-              color: black; 
-              z-index: 9999;
-              font-family: sans-serif;
-            }
-            
-            /* Typography Tweaks for Print */
+            html, body { margin: 0 !important; padding: 0 !important; background: white !important; height: auto !important; overflow: visible !important; }
+            .print-portal-root { display: block !important; position: absolute; top: 0; left: 0; width: 100%; background: white; color: black; z-index: 9999; font-family: sans-serif; }
             .print-portal-root h1 { font-size: 24pt; margin-bottom: 0.5em; color: black; }
             .print-portal-root h2 { font-size: 18pt; margin-top: 1em; border-bottom: 1px solid #ccc; color: #333; }
             .print-portal-root h3 { font-size: 14pt; margin-top: 1em; color: #444; }
@@ -392,9 +604,15 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
                            </div>
                            <div className="flex gap-4">
                               <div className="flex flex-col items-center gap-2 text-gray-400 w-10 pt-2">
-                                 <ChevronUpIcon className="w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer" />
+                                 <ChevronUpIcon 
+                                    onClick={() => handleVote('question', 1)}
+                                    className={`w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer transition-colors ${content.question.userVote === 1 ? 'text-orange-500 border-orange-500 bg-orange-500/10' : ''}`} 
+                                 />
                                  <span className="font-bold text-lg">{content.question.votes}</span>
-                                 <ChevronUpIcon className="w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer rotate-180" />
+                                 <ChevronUpIcon 
+                                    onClick={() => handleVote('question', -1)}
+                                    className={`w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer rotate-180 transition-colors ${content.question.userVote === -1 ? 'text-orange-500 border-orange-500 bg-orange-500/10' : ''}`} 
+                                 />
                               </div>
                               <div className="flex-1 bg-gray-900/30 p-6 rounded border border-gray-800 text-sm">
                                  {renderMarkdown(content.question.content, 'dark')}
@@ -406,12 +624,19 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
                                  {content.answers.map((ans: any, idx: number) => (
                                     <div key={idx} className="flex gap-4 border-t border-gray-800 pt-6">
                                        <div className="flex flex-col items-center gap-2 text-gray-400 w-10 pt-2">
-                                          <ChevronUpIcon className="w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer" />
+                                          <ChevronUpIcon 
+                                            onClick={() => handleVote('answer', 1, idx)}
+                                            className={`w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer transition-colors ${ans.userVote === 1 ? 'text-orange-500 border-orange-500 bg-orange-500/10' : ''}`} 
+                                          />
                                           <span className="font-bold text-lg">{ans.votes}</span>
-                                          <ChevronUpIcon className="w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer rotate-180" />
+                                          <ChevronUpIcon 
+                                            onClick={() => handleVote('answer', -1, idx)}
+                                            className={`w-8 h-8 p-1 rounded-full border border-gray-600 hover:bg-orange-500/20 cursor-pointer rotate-180 transition-colors ${ans.userVote === -1 ? 'text-orange-500 border-orange-500 bg-orange-500/10' : ''}`} 
+                                          />
                                           {ans.accepted && <CheckIcon className="w-8 h-8 text-green-500 mt-2" />}
                                        </div>
                                        <div className="flex-1">
+                                          {/* Main Answer Content */}
                                           <div className={`p-6 rounded border text-sm ${ans.accepted ? 'bg-green-900/10 border-green-900/30' : 'bg-gray-900/30 border-gray-800'}`}>
                                              {renderMarkdown(ans.content, 'dark')}
                                           </div>
@@ -419,6 +644,97 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
                                              <span>Answered {ans.time}</span>
                                              <span className="text-blue-300 font-bold">{ans.user}</span>
                                              {ans.accepted && <span className="font-bold text-green-600">(Accepted)</span>}
+                                          </div>
+
+                                          {/* LEVEL 2: Comments Section */}
+                                          <div className="mt-4 pl-4 border-l-2 border-gray-800 space-y-4">
+                                              {ans.comments && ans.comments.length > 0 && ans.comments.map((comment: Comment) => (
+                                                  <div key={comment.id} className="animate-fade-in group">
+                                                      <div className="flex gap-2 text-xs py-1">
+                                                          <span className={`font-bold whitespace-nowrap ${comment.isUser ? 'text-green-400' : 'text-blue-400'}`}>
+                                                              {comment.user}:
+                                                          </span>
+                                                          <span className="text-gray-400">{comment.content}</span>
+                                                          
+                                                          {/* Action Bar */}
+                                                          <div className="flex items-center gap-2 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                              <span className="text-gray-600">{comment.time}</span>
+                                                              <button 
+                                                                 onClick={() => setActiveReplyId(activeReplyId === comment.id ? null : comment.id)}
+                                                                 className="text-gray-500 hover:text-white flex items-center gap-1"
+                                                                 title="Reply to thread"
+                                                              >
+                                                                  <ChatBubbleLeftRightIcon className="w-3 h-3" />
+                                                              </button>
+                                                          </div>
+                                                      </div>
+
+                                                      {/* LEVEL 3: Thread Replies */}
+                                                      {(comment.replies && comment.replies.length > 0) || activeReplyId === comment.id ? (
+                                                          <div className="ml-4 pl-3 mt-2 border-l-2 border-gray-700 space-y-2">
+                                                              {comment.replies && comment.replies.map(reply => (
+                                                                  <div key={reply.id} className="flex gap-2 text-xs py-1">
+                                                                      <span className={`font-bold whitespace-nowrap ${reply.isUser ? 'text-green-400' : 'text-purple-400'}`}>
+                                                                          {reply.user}:
+                                                                      </span>
+                                                                      <span className="text-gray-300">{reply.content}</span>
+                                                                  </div>
+                                                              ))}
+                                                              
+                                                              {/* Level 3 Input Box */}
+                                                              {activeReplyId === comment.id && (
+                                                                  <div className="flex items-center gap-2 mt-2 bg-gray-900/50 p-1 rounded border border-gray-700 animate-slide-in">
+                                                                      <span className="text-[10px] text-gray-500 uppercase font-bold px-1">Reply to {comment.user}:</span>
+                                                                      <input 
+                                                                          type="text" 
+                                                                          value={threadReplyInput}
+                                                                          onChange={(e) => setThreadReplyInput(e.target.value)}
+                                                                          onKeyDown={(e) => e.key === 'Enter' && handlePostThreadReply(idx, comment.id, comment.user, comment.content)}
+                                                                          autoFocus
+                                                                          placeholder="Type your reply..."
+                                                                          className="flex-1 bg-transparent text-xs text-gray-300 focus:outline-none"
+                                                                      />
+                                                                      {processingId === comment.id ? (
+                                                                          <SparklesIcon className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+                                                                      ) : (
+                                                                          <button 
+                                                                              onClick={() => handlePostThreadReply(idx, comment.id, comment.user, comment.content)}
+                                                                              disabled={!threadReplyInput}
+                                                                              className="text-gray-500 hover:text-purple-400 disabled:opacity-50"
+                                                                          >
+                                                                              <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                                                                          </button>
+                                                                      )}
+                                                                  </div>
+                                                              )}
+                                                          </div>
+                                                      ) : null}
+                                                  </div>
+                                              ))}
+
+                                              {/* Level 2 Input (Reply to Answer) */}
+                                              <div className="mt-3 flex items-center gap-2 pt-2 border-t border-gray-800/50">
+                                                  <input 
+                                                      type="text" 
+                                                      value={answerCommentInputs[idx] || ''}
+                                                      onChange={(e) => setAnswerCommentInputs(prev => ({ ...prev, [idx]: e.target.value }))}
+                                                      onKeyDown={(e) => e.key === 'Enter' && handlePostAnswerComment(idx)}
+                                                      placeholder={`Add a comment to ${ans.user}'s answer...`}
+                                                      className="flex-1 bg-gray-900/50 border-b border-gray-700 text-xs text-gray-300 px-2 py-1 focus:outline-none focus:border-blue-500 transition-colors"
+                                                      disabled={processingId === idx}
+                                                  />
+                                                  {processingId === idx ? (
+                                                      <SparklesIcon className="w-4 h-4 text-orange-400 animate-spin" />
+                                                  ) : (
+                                                      <button 
+                                                          onClick={() => handlePostAnswerComment(idx)}
+                                                          disabled={!answerCommentInputs[idx]}
+                                                          className="text-gray-500 hover:text-green-400 disabled:opacity-50"
+                                                      >
+                                                          <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                                                      </button>
+                                                  )}
+                                              </div>
                                           </div>
                                        </div>
                                     </div>
@@ -488,6 +804,27 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
                                                 <span className="text-xs text-gray-500">Votes: {ans.votes} {ans.accepted && '• Accepted Answer'}</span>
                                              </div>
                                              <div>{renderMarkdown(ans.content, 'light')}</div>
+                                             {ans.comments && ans.comments.length > 0 && (
+                                                <div className="mt-4 pt-2 border-t border-gray-200 text-xs">
+                                                    <strong>Comments:</strong>
+                                                    <ul className="list-disc pl-4 mt-1">
+                                                        {ans.comments.map((c: Comment) => (
+                                                            <li key={c.id} className="text-gray-600">
+                                                                <strong>{c.user}:</strong> {c.content}
+                                                                {c.replies && c.replies.length > 0 && (
+                                                                    <ul className="list-circle pl-4 mt-1 border-l border-gray-300">
+                                                                        {c.replies.map(r => (
+                                                                            <li key={r.id} className="text-gray-500">
+                                                                                <strong>{r.user}:</strong> {r.content}
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                )}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                             )}
                                           </div>
                                        ))}
                                     </div>
