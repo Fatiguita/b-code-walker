@@ -216,11 +216,37 @@ const App: React.FC = () => {
     localStorage.setItem('b_code_walker_settings', JSON.stringify(settings));
   }, [settings]);
 
-  // --- Auto-Save FILE Effect ---
+  // --- State Refs for Interval Access ---
+  // We use refs to hold current state values so the intervals can access the latest data
+  // without having to add the data as dependencies (which would reset the timer on every keystroke).
+  const filesRef = useRef(files);
+  const aiPlansRef = useRef(aiPlans);
+  const settingsRef = useRef(settings);
+  const themeStudioStateRef = useRef(themeStudioState);
+  const conceptCacheRef = useRef(conceptCache);
+  const workflowStateRef = useRef(workflowState);
+
   useEffect(() => {
+    filesRef.current = files;
+    aiPlansRef.current = aiPlans;
+    settingsRef.current = settings;
+    themeStudioStateRef.current = themeStudioState;
+    conceptCacheRef.current = conceptCache;
+    workflowStateRef.current = workflowState;
+  }, [files, aiPlans, settings, themeStudioState, conceptCache, workflowState]);
+
+
+  // --- Auto-Save FILE Effect (Fixed) ---
+  useEffect(() => {
+    // Only check configuration, do not include 'files' in dependency array
     if (!settings.autoDownloadEnabled || settings.autoDownloadInterval < 5 || !settings.autoDownloadFileId) return;
+
     const intervalId = setInterval(() => {
-      const targetFile = files.find(f => f.id === settings.autoDownloadFileId);
+      // Access current state via refs
+      const currentFiles = filesRef.current;
+      const targetId = settingsRef.current.autoDownloadFileId;
+      const targetFile = currentFiles.find(f => f.id === targetId);
+
       if (targetFile) {
         const blob = new Blob([targetFile.content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -233,10 +259,12 @@ const App: React.FC = () => {
         URL.revokeObjectURL(url);
       }
     }, settings.autoDownloadInterval * 1000);
+
     return () => clearInterval(intervalId);
-  }, [settings.autoDownloadEnabled, settings.autoDownloadInterval, settings.autoDownloadFileId, files]);
+  }, [settings.autoDownloadEnabled, settings.autoDownloadInterval, settings.autoDownloadFileId]);
 
   // --- Auto-Save SESSION to Browser Effect ---
+  // This uses debounce (setTimeout), so it resets on every change. This is desired behavior for local storage save.
   useEffect(() => {
     if (!settings.autoSaveToBrowser) return;
 
@@ -271,16 +299,46 @@ const App: React.FC = () => {
     return () => clearTimeout(saveTimeout);
   }, [files, aiPlans, settings, themeStudioState, conceptCache, workflowState, settings.autoSaveToBrowser]);
 
-  // --- Auto-Export SESSION ZIP Effect ---
+  // --- Auto-Export SESSION ZIP Effect (Fixed) ---
   useEffect(() => {
-    if (!settings.autoExportSessionEnabled || settings.autoExportSessionInterval < 60) return;
+    if (!settings.autoExportSessionEnabled || settings.autoExportSessionInterval < 10) return;
     
-    const intervalId = setInterval(() => {
-        exportSessionZip(`autosave-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}`);
+    const intervalId = setInterval(async () => {
+        // Build data from refs to ensure freshness without restarting interval on keystrokes
+        const currentData: SessionData = { 
+            version: 2, 
+            name: `autosave-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}`, 
+            timestamp: Date.now(), 
+            files: filesRef.current, 
+            aiPlans: aiPlansRef.current, 
+            settings: settingsRef.current,
+            themeStudioState: themeStudioStateRef.current, 
+            conceptCache: conceptCacheRef.current, 
+            workflowState: workflowStateRef.current 
+        };
+
+        const zip = new JSZip();
+        zip.file("session.json", JSON.stringify(currentData, null, 2));
+        const filesFolder = zip.folder("files");
+        currentData.files.forEach(f => { filesFolder?.file(f.name, f.content); });
+        
+        try {
+            const blob = await zip.generateAsync({type:"blob"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentData.name}.bcw.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch(e) {
+            console.error("Auto-export error:", e);
+        }
     }, settings.autoExportSessionInterval * 1000);
 
     return () => clearInterval(intervalId);
-  }, [settings.autoExportSessionEnabled, settings.autoExportSessionInterval, files, aiPlans, settings, themeStudioState, conceptCache, workflowState]);
+  }, [settings.autoExportSessionEnabled, settings.autoExportSessionInterval]);
 
   // --- Theme Style Injection ---
   const getThemeStyles = () => {
