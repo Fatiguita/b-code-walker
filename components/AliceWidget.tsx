@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
+import Prism from 'prismjs';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-markup';
+import 'prismjs/components/prism-bash';
 import { AppSettings, EditorFile } from '../types';
-import { MicrophoneIcon, PaperAirplaneIcon, XMarkIcon, SparklesIcon, ChatBubbleLeftRightIcon, TrashIcon } from './Icons';
+import { MicrophoneIcon, PaperAirplaneIcon, XMarkIcon, SparklesIcon, ChatBubbleLeftRightIcon, TrashIcon, Square2StackIcon } from './Icons';
 
 interface AliceWidgetProps {
   settings: AppSettings;
@@ -106,6 +114,7 @@ ${activeFile.content}
       const prompt = `
         You are Bruno, a helpful coding assistant in the b-code-walker IDE.
         Be concise, friendly, and helpful. 
+        You can use Markdown for code blocks (using \`\`\`language) and bold text.
         ${fileContext}
         
         Conversation History:
@@ -132,6 +141,65 @@ ${activeFile.content}
     }
   };
 
+  const renderMarkdown = (text: string) => {
+    // 1. Split by Code Blocks
+    const parts = text.split(/(```[\s\S]*?```)/g);
+    
+    return parts.map((part, idx) => {
+        // CODE BLOCK
+        if (part.startsWith('```')) {
+            const match = part.match(/```(\w*)\n([\s\S]*?)```/);
+            // Handle edge case where regex might fail on simple ``` blocks
+            const lang = match?.[1] || 'text';
+            const code = match?.[2] || part.replace(/```.*/g, '').trim(); 
+            
+            // Highlight
+            let html = '';
+            try {
+                html = Prism.highlight(
+                    code, 
+                    Prism.languages[lang] || Prism.languages.javascript, 
+                    lang
+                );
+            } catch (e) {
+                html = code; // Fallback
+            }
+
+            return (
+                <div key={idx} className="my-2 rounded-md overflow-hidden border border-white/10 bg-[#1e1e1e] flex flex-col group text-left max-w-full">
+                    <div className="flex justify-between items-center bg-[#2d2d2d] px-2 py-1 border-b border-white/5 select-none">
+                        <span className="text-[9px] text-gray-400 font-mono uppercase">{lang}</span>
+                        <button 
+                            onClick={() => navigator.clipboard.writeText(code)}
+                            className="flex items-center gap-1 text-[9px] text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100 bg-white/5 px-1.5 py-0.5 rounded hover:bg-white/10"
+                        >
+                            <Square2StackIcon className="w-3 h-3" /> Copy
+                        </button>
+                    </div>
+                    <pre className="p-2 overflow-x-auto text-[10px] font-mono text-gray-300 custom-scrollbar m-0">
+                        <code dangerouslySetInnerHTML={{ __html: html }} />
+                    </pre>
+                </div>
+            );
+        }
+        
+        // REGULAR TEXT (with inline markdown)
+        return (
+            <div key={idx} className="whitespace-pre-wrap break-words min-w-0">
+                {part.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((chunk, ci) => {
+                    if (chunk.startsWith('`') && chunk.endsWith('`')) {
+                        return <code key={ci} className="bg-black/20 px-1 py-0.5 rounded font-mono text-[0.9em] mx-0.5">{chunk.slice(1, -1)}</code>;
+                    }
+                    if (chunk.startsWith('**') && chunk.endsWith('**')) {
+                        return <strong key={ci} className="font-bold">{chunk.slice(2, -2)}</strong>;
+                    }
+                    return chunk;
+                })}
+            </div>
+        );
+    });
+  };
+
   return (
     <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] flex flex-col items-end pointer-events-none">
       {/* Chat Window */}
@@ -155,14 +223,14 @@ ${activeFile.content}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--bg-primary)]">
              {messages.map((m, i) => (
                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-2 rounded-lg text-xs leading-relaxed ${m.role === 'user' ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)]'}`}>
-                     {m.text}
+                  <div className={`max-w-[90%] p-2.5 rounded-lg text-xs leading-relaxed overflow-hidden ${m.role === 'user' ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)]'}`}>
+                     {renderMarkdown(m.text)}
                   </div>
                </div>
              ))}
              {isThinking && (
                <div className="flex justify-start">
-                  <div className="bg-[var(--bg-tertiary)] p-2 rounded-lg text-xs text-[var(--text-secondary)] italic flex items-center gap-1">
+                  <div className="bg-[var(--bg-tertiary)] p-2 rounded-lg text-xs text-[var(--text-secondary)] italic flex items-center gap-1 border border-[var(--border-color)]">
                      <SparklesIcon className="w-3 h-3 animate-spin" /> Thinking...
                   </div>
                </div>
