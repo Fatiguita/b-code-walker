@@ -390,6 +390,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         onChange={(e) => setSettings({...settings, autoExportSessionInterval: Number(e.target.value)})}
                         className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-primary)]"
                      >
+                        <option value={180}>3 Minutes</option>
                         <option value={300}>5 Minutes</option>
                         <option value={600}>10 Minutes</option>
                         <option value={1800}>30 Minutes</option>
