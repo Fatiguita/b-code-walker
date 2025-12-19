@@ -27,6 +27,23 @@ interface CommunityTabProps {
   clearInitialRequest: () => void;
 }
 
+// Fixed: Moved PrintPortal outside of CommunityTab to resolve TS error: 
+// "Property 'children' is missing in type '{}' but required in type '{ children: React.ReactNode; }'"
+// This also prevents unnecessary re-creation of the component on every render of the parent.
+/**
+ * PRINT PORTAL
+ * Renders a clean, light-mode version of the content specifically for the print media query.
+ * This portal sits at document.body level, bypassing all parent overflow:hidden constraints.
+ */
+const PrintPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return createPortal(
+    <div className="print-portal-root">
+      {children}
+    </div>,
+    document.body
+  );
+};
+
 export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialRequest, clearInitialRequest }) => {
   const [topic, setTopic] = useState('');
   const [activeMode, setActiveMode] = useState<'discussion' | 'blog'>('discussion');
@@ -239,14 +256,7 @@ export const CommunityTab: React.FC<CommunityTabProps> = ({ settings, initialReq
    * Renders a clean, light-mode version of the content specifically for the print media query.
    * This portal sits at document.body level, bypassing all parent overflow:hidden constraints.
    */
-  const PrintPortal = ({ children }: { children: React.ReactNode }) => {
-    return createPortal(
-      <div className="print-portal-root">
-        {children}
-      </div>,
-      document.body
-    );
-  };
+  // (Component moved outside to fix duplicate declaration and TS error)
 
   return (
     <div className="flex flex-col h-full bg-gray-950 text-gray-200 font-sans relative overflow-hidden">

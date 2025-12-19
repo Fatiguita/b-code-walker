@@ -51,3 +51,5 @@ pnpm-debug.log*
 .eslintcache
 .npm
 .cache
+
+package-lock.json

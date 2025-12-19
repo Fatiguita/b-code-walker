@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -9,30 +10,44 @@ import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-markdown';
 import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-markup'; // HTML
+import 'prismjs/components/prism-markup-templating';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-php';
+import 'prismjs/components/prism-ruby';
+import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-kotlin';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-yaml';
+
 import { SupportedLanguage, EditorFile, AIPlan, AICodeBlock, AppSettings, APILog, AdvancedConfig } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import JSZip from 'jszip';
 import { Dialog, ModalType } from './Modal';
 import { 
   XMarkIcon, 
-  PlusIcon,
-  ChevronDownIcon,
-  MagnifyingGlassIcon,
-  ChevronUpIcon,
-  ArrowPathIcon,
-  SparklesIcon,
-  ExclamationTriangleIcon,
-  StopCircleIcon,
-  CodeBracketIcon,
-  ChatBubbleLeftRightIcon,
-  EyeIcon,
-  DocumentTextIcon,
-  Square2StackIcon,
-  PencilIcon,
-  CheckIcon,
-  PaperAirplaneIcon,
-  CommandLineIcon,
-  ArrowsPointingOutIcon,
+  PlusIcon, 
+  ChevronDownIcon, 
+  MagnifyingGlassIcon, 
+  ChevronUpIcon, 
+  ArrowPathIcon, 
+  SparklesIcon, 
+  ExclamationTriangleIcon, 
+  StopCircleIcon, 
+  CodeBracketIcon, 
+  ChatBubbleLeftRightIcon, 
+  EyeIcon, 
+  DocumentTextIcon, 
+  Square2StackIcon, 
+  PencilIcon, 
+  CheckIcon, 
+  PaperAirplaneIcon, 
+  CommandLineIcon, 
+  ArrowsPointingOutIcon, 
   LanguageIcon
 } from './Icons';
 
@@ -49,7 +64,6 @@ interface EditorTabProps {
 }
 
 // ... [CONSTANTS: DEFAULT_SYSTEM_INSTRUCTION, THINKING_PROTOCOL_INSTRUCTION, PROJECT_SYSTEM_INSTRUCTION] ...
-// Keeping these constants internal to avoid repetition, they remain exactly as in the previous file version.
 const DEFAULT_SYSTEM_INSTRUCTION = `You are an expert full-stack coding engine and visualizer.\nAnalyze the user's request and the desired language.\nGenerate the FULL implementation code, structured as a hierarchical tree.\n\nCRITICAL RULES:\n1. Separate the code into 'Imports' and 'Blocks'.\n2. 'Blocks' is a recursive list of code regions. \n3. 'signature': The header line of the block.\n4. 'code': The FULL body content.\n5. 'type': 'function', 'class', 'statement', or 'variable'.\n6. 'explanation': A short markdown explanation of what this block does (1-2 sentences).\n7. 'mermaid': A valid Mermaid.js flowchart string representing the logic within this block.\n8. 'visualType': One of 'process', 'database', 'ui', 'api', 'logic'. \n   CRITICAL: Choose the visual metaphor that best acts as a MNEMONIC for the code's behavior.\n9. 'visualSvg': A valid, unique, and ANIMATED SVG string (starting with <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">) that visually represents this SPECIFIC function's logic using abstract geometry.\n   - REQUIREMENT: It MUST contain SVG animations (<animate>, <animateTransform>, <set>, etc.) to bring the metaphor to life.\n   - The visual must be SPECIFIC to the function (e.g., if it's a 'sort' function, show rectangles reordering; if 'fetch', show moving dots; if 'auth', show a key/lock interaction).\n   - Do not use text elements. Use pure geometry.\n   - Use 'currentColor' for main strokes to adapt to themes.\n   - Keep it minimalist, clean, and mnemonic.\n10. 'globalExplanation': An overview of the entire solution.\n11. 'globalMermaid': A Mermaid diagram for the whole system.\n12. Create signatures for code blocks up to 4 levels deep in hierarchy (e.g. Class > Method > Control Flow > Statement).\n13. Make sure to create a signature block for imports at the start\n14. CRITICAL: In the 'code' property, ALWAYS include a professional JSDoc/Docstring comment block immediately before the function/class/variable signature.\n15. 'comment': A concise, one-line technical comment (max 15 words) explaining exactly what this signature does in relation to the higher-level logic/parent block.\n\n!!! MERMAID SYNTAX ZERO-TOLERANCE POLICY !!!\nThe rendering engine is extremely strict. You MUST follow these rules for the 'mermaid' and 'globalMermaid' fields:\n\n1. ALWAYS use 'graph TD' or 'flowchart TD'.\n2. EVERY node label MUST be enclosed in double quotes.\n   - WRONG: A[Process Data]\n   - RIGHT: A["Process Data"]\n3. NEVER use parentheses (), brackets [], or braces {} inside a label unless the label is fully quoted. if you use these inside another loke a function form code, add single quotes inside the func value\n   - WRONG: A[func()]\n   - IMPORTAANT: RIGHT: A["func('any value')"] or empty oneA["func('')"]\n4. Escape double quotes inside strings: "Say \"Hello\"".\n5. DO NOT use semicolons (;) to separate statements. Use newlines.\n6. DO NOT include markdown code blocks (no \`\`\`mermaid).\n7. Node IDs must be alphanumeric strings without spaces (e.g., Node1, Step_A).`.trim();
 const THINKING_PROTOCOL_INSTRUCTION = `RESPONSE FORMAT ENFORCEMENT FOR THINKING MODELS:\n\nYou have chain-of-thought capabilities enabled. \n1. You may output thinking/reasoning text at the start of your response.\n2. HOWEVER, the FINAL output MUST be a valid JSON object.\n3. You MUST wrap the final JSON in the following delimiters:\n\n     AVOCADO4\n     { ... your json content ... }\n     GUACAMOLE\n\n- The application will look for content between AVOCADO4 and GUACAMOLE.\n- NO MATTER WHAT YOU MUST RESPOND WITH JSON INSIDE THE DELIMITERS.`.trim();
 const PROJECT_SYSTEM_INSTRUCTION = `You are a Modular Project Architect.\nYour goal is to generate a multi-file software project based on the user's request.\n\nOUTPUT STRUCTURE:\nYou must return a valid JSON object.\nThe root object MUST contain a 'blocks' array.\nThe 'blocks' array represents the FILES in the project, not code blocks of a single file.\n\nEXAMPLE JSON STRUCTURE:\n{\n  "globalExplanation": "Project overview...",\n  "imports": ["dependency1", "dependency2"],\n  "blocks": [\n    {\n      "type": "file",\n      "signature": "src/App.tsx",\n      "code": "...",\n      "explanation": "Main app component",\n      "children": []\n    }\n  ]\n}\n\nEACH ITEM IN 'blocks' MUST FOLLOW THIS SCHEMA:\n{\n  "type": "file",\n  "signature": "path/to/filename.ext", (Use forward slashes for folders. E.g. 'src/components/Button.tsx')\n  "code": "FULL CONTENT OF THE FILE",\n  "explanation": "Brief description of this file's purpose",\n  "children": [ ...Recursive list of code blocks INSIDE this file... ]\n}\n\nFOR THE 'children' PROPERTY (Inside each file):\n- Analyze the 'code' of the file.\n- Break it down into the standard hierarchy (Imports, Classes/Functions, Methods).\n- CRITICAL: You MUST generate 'mermaid', 'visualSvg', and 'visualType' for EVERY SIGNIFICANT FUNCTION/CLASS in the 'children' array.\n- The visualization engine relies on these nested blocks to show how the project works. \n- Do NOT leave 'mermaid' or 'visualSvg' empty for functions inside the files.\n- Follow the same visual generation rules as the standard mode (graph TD, double quoted labels, animated SVG).\n\nGLOBAL PROPERTIES:\n- "globalExplanation": Explain the architecture of the project.\n- "globalMermaid": A graph showing how the FILES interact or import each other.\n- "imports": Global dependencies (e.g. package.json dependencies list as strings).\n\nCRITICAL:\n1. Do NOT return a single file content in the root. The root 'blocks' array is the FILE LIST.\n2. Ensure file paths are realistic (e.g., 'index.html', 'css/style.css', 'js/app.js').\n3. Respond in valid JSON only.`.trim();
@@ -87,7 +101,9 @@ const DEFAULT_CONFIG: AdvancedConfig = {
   responseSchema: JSON.stringify(DEFAULT_SCHEMA, null, 2),
   temperature: 0.7,
   maxOutputTokens: 65536,
-  thinkingBudget: 16384
+  thinkingBudget: 16384,
+  includeThoughts: true,
+  useResponseSchema: false
 };
 
 const getCleanImports = (imports: any[]): string[] => {
@@ -178,7 +194,9 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const [userQuestion, setUserQuestion] = useState('');
 
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
-  const isThinkingModel = (settings.activeModel.includes('gemini-2.5') || settings.activeModel.includes('gemini-3')) && !settings.activeModel.includes('flash');
+  
+  // Model detection: gemini-2.5-flash is NOT a thinking model per user request
+  const isThinkingModel = settings.activeModel === 'gemini-2.5-pro' || settings.activeModel.includes('gemini-3');
 
   const updateConfig = (updates: Partial<AdvancedConfig>) => {
     if (activePlanId) {
@@ -202,7 +220,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
     }
   };
 
-  // ... [Undo/Redo/History/Rename logic preserved] ...
   const saveHistory = (fileId: string, newContent: string) => { setFiles(prevFiles => prevFiles.map(f => { if (f.id === fileId) { if (f.history[f.historyIndex] === newContent) return f; const newHistory = f.history.slice(0, f.historyIndex + 1); newHistory.push(newContent); if (newHistory.length > 50) newHistory.shift(); return { ...f, content: newContent, history: newHistory, historyIndex: newHistory.length - 1 }; } return f; })); };
   const debouncedSaveHistory = (fileId: string, newContent: string) => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); debounceTimerRef.current = setTimeout(() => { saveHistory(fileId, newContent); }, 800); };
   const updateActiveFileContent = (newContent: string) => { setFiles(files.map(f => f.id === activeFileId ? { ...f, content: newContent } : f)); debouncedSaveHistory(activeFileId, newContent); };
@@ -212,7 +229,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const confirmRename = () => { if (editingFileId && tempFileName.trim()) { setFiles(files.map(f => f.id === editingFileId ? { ...f, name: tempFileName.trim() } : f)); } setEditingFileId(null); setTempFileName(''); };
   const handleRenameKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') confirmRename(); if (e.key === 'Escape') setEditingFileId(null); };
 
-  // ... [Find/Search/Scroll logic preserved] ...
   const performSearch = useCallback((text: string, term: string) => { if (!term) { setMatches([]); setTotalMatches(0); return; } const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const regex = new RegExp(escapedTerm, 'gi'); const newMatches = []; let match; while ((match = regex.exec(text)) !== null) { newMatches.push({ start: match.index, end: match.index + term.length }); } setMatches(newMatches); setTotalMatches(newMatches.length); setCurrentMatchIndex(0); }, []);
   const findNext = () => { if (matches.length === 0) return; const nextIndex = (currentMatchIndex + 1) % matches.length; setCurrentMatchIndex(nextIndex); };
   const findPrev = () => { if (matches.length === 0) return; const prevIndex = (currentMatchIndex - 1 + matches.length) % matches.length; setCurrentMatchIndex(prevIndex); };
@@ -222,7 +238,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
 
   const cancelGeneration = () => { if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null; } setIsGeneratingPlan(false); setAiError("Request cancelled by user"); addLog('error', 'Request cancelled by user'); };
 
-  // ... [AI methods preserved] ...
   const generateAIPlan = async () => {
     if (!aiPrompt) return;
     const apiKey = getApiKey();
@@ -247,25 +262,47 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       try { parsedSchema = JSON.parse(activeConfig.responseSchema); } catch (e) { throw new Error("Invalid JSON Schema in Dev Settings"); }
       let effectiveSystemInstruction = isProjectMode ? PROJECT_SYSTEM_INSTRUCTION : activeConfig.systemInstruction;
       if (isProjectMode) addLog('thinking', 'Project Mode Activated. Swapped System Instruction for Modular Architecture.');
-      const config: any = { responseSchema: parsedSchema, temperature: activeConfig.temperature };
+      
+      const config: any = { temperature: activeConfig.temperature };
+      
+      // Conditional Response Schema
+      if (activeConfig.useResponseSchema) {
+          config.responseSchema = parsedSchema;
+          addLog('thinking', 'Enforcing Response Schema via API config.');
+      } else {
+          addLog('thinking', 'Response Schema enforcement disabled (using System Prompt only).');
+      }
+      
       if (isThinkingModel) {
-        config.maxOutputTokens = activeConfig.maxOutputTokens; 
-        config.thinkingConfig = { thinkingBudget: activeConfig.thinkingBudget };
+        config.maxOutputTokens = activeConfig.maxOutputTokens;
+        
+        // Unified Logic: All Thinking models use thinkingBudget now
+        config.thinkingConfig = { 
+             includeThoughts: activeConfig.includeThoughts ?? true
+        };
+
+        if (activeConfig.thinkingBudget === -1) {
+             // Auto/Default budget
+             addLog('thinking', `Thinking Model Detected. Using Auto Budget (Model Default).`);
+        } else {
+             config.thinkingConfig.thinkingBudget = activeConfig.thinkingBudget;
+             addLog('thinking', `Thinking Model Detected. Using Budget: ${activeConfig.thinkingBudget} tokens.`);
+        }
+        
         effectiveSystemInstruction += `\n\n${THINKING_PROTOCOL_INSTRUCTION}\n\n*** REQUIRED JSON STRUCTURE ***\nSince you are in Thinking Mode, you must ensure your final output inside the AVOCADO4 block adheres to this JSON schema:\n${JSON.stringify(parsedSchema, null, 2)}`;
-        addLog('thinking', `Thinking Model Detected. JSON MimeType disabled. Budget: ${activeConfig.thinkingBudget} tokens. Protocol & Schema injected.`);
       } else {
         config.responseMimeType = "application/json";
         config.maxOutputTokens = activeConfig.maxOutputTokens;
         addLog('sending', `Standard Model Detected. JSON MimeType enforced.`);
       }
+      
       config.systemInstruction = effectiveSystemInstruction;
       let effectivePrompt = aiPrompt;
       if (useHierarchyDepth && isThinkingModel) effectivePrompt += ` ${hierarchyDepth} levels of hierchy in return json`;
-      const requestPayload = { model: settings.activeModel, prompt: effectivePrompt, language: aiLanguage || 'Auto-detect', config: config };
-      addLog('sending', 'Payload constructed. Sending to API...', requestPayload);
+      const configObj = { model: settings.activeModel, contents: `Language: ${aiLanguage || 'Auto-detect'}. Request: ${effectivePrompt}`, config: config };
+      addLog('sending', 'Payload constructed. Sending to API...', configObj);
       addLog('ack', 'Request Acknowledged. Waiting for response...');
-      const apiCall = ai.models.generateContent({ model: settings.activeModel, contents: `Language: ${aiLanguage || 'Auto-detect'}. Request: ${effectivePrompt}`, config: config });
-      const response = await apiCall;
+      const response = await ai.models.generateContent(configObj);
       addLog('response', 'Response Received', { candidates: response.candidates?.length, usage: response.usageMetadata, rawTextPreview: response.text?.substring(0, 100) + '...' });
       if (!isGeneratingPlan && abortControllerRef.current === null) return;
       if (response.text) {
@@ -317,7 +354,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   };
 
   const explainCode = async (id: string, code: string, question?: string) => {
-    // ... [explainCode implementation preserved] ...
     const apiKey = getApiKey();
     if (!apiKey) { setExplanations(prev => ({ ...prev, [id]: "API Key Missing. Check Settings." })); return; }
     if (explanations[id] && !question) return;
@@ -340,7 +376,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   };
 
   const handleAnnotateCode = async (id: string, code: string, language: string) => {
-    // ... [handleAnnotateCode implementation preserved] ...
     const apiKey = getApiKey();
     if (!apiKey) { setAnnotatedBlocks(prev => ({ ...prev, [id]: "// API Key Missing. Please check settings." })); return; }
     if (annotatedBlocks[id]) { setAnnotatedBlocks(prev => { const n = {...prev}; delete n[id]; return n; }); return; }
@@ -369,9 +404,8 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const insertCode = (code: string) => { const newContent = activeFile.content + '\n' + code; updateActiveFileContent(newContent); };
   const loadPromptFromPlan = (plan: AIPlan) => { setAiPrompt(plan.prompt || plan.name); setDraftConfig(plan.config); setIsProjectMode(!!plan.isProject); setActivePlanId(null); };
   const downloadProjectZip = async () => { if (!activePlan || !activePlan.isProject || !activePlan.blocks) return; const zip = new JSZip(); activePlan.blocks.forEach(block => { if (block.code && block.signature) zip.file(block.signature, block.code); }); const blob = await zip.generateAsync({type:"blob"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${activePlan.name.replace(/\s+/g, '_')}_project.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
-  const applyProjectToWorkspace = () => { if (!activePlan || !activePlan.isProject || !activePlan.blocks) return; const validBlocks = activePlan.blocks.filter(b => b.code && b.signature); if (validBlocks.length === 0) { setDialogState({ isOpen: true, type: 'info', title: 'No Files Found', message: "No valid files found in this project plan. The AI might have generated an empty structure.", onConfirm: () => {} }); return; } setDialogState({ isOpen: true, type: 'confirm', title: 'Apply to Workspace', message: `This will add ${validBlocks.length} generated files to your workspace. Continue?`, onConfirm: () => { const newFiles: EditorFile[] = validBlocks.map(block => { let lang = SupportedLanguage.JAVASCRIPT; const ext = block.signature.split('.').pop()?.toLowerCase(); if(ext === 'ts' || ext === 'tsx') lang = SupportedLanguage.TYPESCRIPT; if(ext === 'css') lang = SupportedLanguage.CSS; if(ext === 'html') lang = SupportedLanguage.HTML; if(ext === 'json') lang = SupportedLanguage.JSON; if(ext === 'sql') lang = SupportedLanguage.SQL; if(ext === 'py') lang = SupportedLanguage.PYTHON; if(ext === 'md') lang = SupportedLanguage.MARKDOWN; return { id: Date.now() + Math.random().toString(), name: block.signature, content: block.code, language: lang, history: [block.code], historyIndex: 0 }; }); setFiles(prev => [...prev, ...newFiles]); if(newFiles.length > 0) setActiveFileId(newFiles[0].id); setDialogState({ isOpen: true, type: 'info', title: 'Success', message: `Added ${newFiles.length} files to workspace.`, onConfirm: () => {} }); } }); };
+  const applyProjectToWorkspace = () => { if (!activePlan || !activePlan.isProject || !activePlan.blocks) return; const validBlocks = activePlan.blocks.filter(b => b.code && b.signature); if (validBlocks.length === 0) { setDialogState({ isOpen: true, type: 'info', title: 'No Files Found', message: "No valid files found in this project plan. The AI might have generated an empty structure.", onConfirm: () => {} }); return; } setDialogState({ isOpen: true, type: 'confirm', title: 'Apply to Workspace', message: `This will add ${validBlocks.length} generated files to your workspace. Continue?`, onConfirm: () => { const newFiles: EditorFile[] = validBlocks.map(block => { let lang = SupportedLanguage.JAVASCRIPT; const ext = block.signature.split('.').pop()?.toLowerCase(); if(ext === 'ts' || ext === 'tsx') lang = SupportedLanguage.TYPESCRIPT; if(ext === 'css') lang = SupportedLanguage.CSS; if(ext === 'html') lang = SupportedLanguage.HTML; if(ext === 'json') lang = SupportedLanguage.JSON; if(ext === 'sql') lang = SupportedLanguage.SQL; if(ext === 'py') lang = SupportedLanguage.PYTHON; if(ext === 'md') lang = SupportedLanguage.MARKDOWN; if(ext === 'java') lang = SupportedLanguage.JAVA; if(ext === 'cs') lang = SupportedLanguage.CSHARP; if(ext === 'cpp' || ext === 'c') lang = SupportedLanguage.CPP; if(ext === 'go') lang = SupportedLanguage.GO; if(ext === 'rs') lang = SupportedLanguage.RUST; if(ext === 'php') lang = SupportedLanguage.PHP; if(ext === 'rb') lang = SupportedLanguage.RUBY; if(ext === 'swift') lang = SupportedLanguage.SWIFT; if(ext === 'kt' || ext === 'kts') lang = SupportedLanguage.KOTLIN; if(ext === 'sh' || ext === 'bash') lang = SupportedLanguage.BASH; if(ext === 'yaml' || ext === 'yml') lang = SupportedLanguage.YAML; if(ext === 'xml') lang = SupportedLanguage.XML; return { id: Date.now() + Math.random().toString(), name: block.signature, content: block.code, language: lang, history: [block.code], historyIndex: 0 }; }); setFiles(prev => [...prev, ...newFiles]); if(newFiles.length > 0) setActiveFileId(newFiles[0].id); setDialogState({ isOpen: true, type: 'info', title: 'Success', message: `Added ${newFiles.length} files to workspace.`, onConfirm: () => {} }); } }); };
 
-  // ... [Highlight/Scroll/Render methods preserved] ...
   const highlight = (code: string) => Prism.highlight(code, Prism.languages[activeFile.language] || Prism.languages.javascript, activeFile.language);
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => { if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop; };
   const lineCount = activeFile.content.split('\n').length;
@@ -390,8 +424,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   );
 
   const BlockRenderer: React.FC<{ block: AICodeBlock, level?: number }> = ({ block, level = 0 }) => {
-    // ... [BlockRenderer implementation preserved] ...
-    // Copying logic from previous file content to ensure consistency
     const isExpanded = expandedBlocks.has(block.id);
     const isCodeVisible = visibleCodeBlocks.has(block.id);
     const hasChildren = block.children && block.children.length > 0;
@@ -492,7 +524,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       </div>
       
       <div className="flex-none bg-[var(--bg-secondary)] flex items-center border-b border-[var(--border-color)]">
-        {/* Scrollable Tabs */}
         <div className="flex-1 flex items-center overflow-x-auto no-scrollbar pr-2">
             {files.map(file => (
             <div key={file.id} onClick={() => setActiveFileId(file.id)} className={`group flex items-center space-x-2 px-3 py-2 min-w-[120px] max-w-[200px] text-sm cursor-pointer border-r border-[var(--border-color)] select-none ${activeFile.id === file.id ? 'bg-[var(--tab-active)] text-[var(--text-primary)] border-t-2 border-t-[var(--accent-primary)]' : 'bg-[var(--tab-inactive)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`} onDoubleClick={(e) => startRenaming(e, file)}>
@@ -504,7 +535,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
             <button onClick={createNewFile} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors flex-none" title="New File"><PlusIcon className="w-4 h-4" /></button>
         </div>
 
-        {/* Fixed Generate Code Button */}
         <div className="flex-none px-2 border-l border-[var(--border-color)] bg-[var(--bg-secondary)] z-10">
             <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center space-x-1 px-3 py-1 text-xs font-medium rounded transition-colors ${showAIPanel ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}><SparklesIcon className="w-3 h-3" /><span>Generate Code</span></button>
         </div>
@@ -551,15 +581,59 @@ export const EditorTab: React.FC<EditorTabProps> = ({
               )}
               {showDevMode ? (
                 <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-primary)] font-mono text-xs relative">
-                   {/* ... Dev Mode Content Preserved ... */}
                    <div className="flex-none p-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-tertiary)]"> <div className="flex items-center gap-2 text-green-400 font-bold uppercase tracking-wider"> <CommandLineIcon className="w-4 h-4" /> <span>Dev Console</span> {activePlan && <span className="text-[9px] text-[var(--text-secondary)] bg-[var(--bg-primary)] px-1 rounded">PLAN: {activePlan?.name}</span>} </div> <div className="flex items-center gap-2"> <span className="text-[10px] text-[var(--text-secondary)]">Advanced Config</span> <button onClick={() => setShowAdvancedConfig(!showAdvancedConfig)} className={`w-8 h-4 rounded-full relative transition-colors ${showAdvancedConfig ? 'bg-green-500' : 'bg-gray-600'}`}> <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showAdvancedConfig ? 'translate-x-4' : ''}`} /> </button> </div> </div>
                    <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
                     {showAdvancedConfig && (
                      <div className="p-4 space-y-4 border-b border-[var(--border-color)]">
                         <div> <label className="block text-xs text-[var(--text-secondary)] mb-1 font-bold">System Instruction</label> <textarea value={activeConfig.systemInstruction} onChange={(e) => updateConfig({ systemInstruction: e.target.value })} className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-2 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none h-32" spellCheck={false} /> </div>
-                        <div> <label className="block text-xs text-[var(--text-secondary)] mb-1 font-bold">JSON Response Schema</label> <textarea value={activeConfig.responseSchema} onChange={(e) => updateConfig({ responseSchema: e.target.value })} className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-2 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none h-32" spellCheck={false} /> </div>
+                        <div> 
+                            <label className="block text-xs text-[var(--text-secondary)] mb-1 font-bold flex justify-between">
+                                JSON Response Schema 
+                                <div className="flex items-center gap-1">
+                                    <input 
+                                        type="checkbox" 
+                                        id="useResponseSchema" 
+                                        checked={activeConfig.useResponseSchema ?? false}
+                                        onChange={(e) => updateConfig({ useResponseSchema: e.target.checked })}
+                                        className="rounded border-gray-600 bg-gray-700 text-[var(--accent-primary)] focus:ring-[var(--accent-primary)] cursor-pointer" 
+                                    />
+                                    <label htmlFor="useResponseSchema" className="text-[9px] font-normal cursor-pointer select-none text-[var(--accent-secondary)]">
+                                        Enforce via API Config
+                                    </label>
+                                </div>
+                            </label> 
+                            <textarea value={activeConfig.responseSchema} onChange={(e) => updateConfig({ responseSchema: e.target.value })} className={`w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-2 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none h-32 ${!activeConfig.useResponseSchema ? 'opacity-50' : ''}`} spellCheck={false} /> 
+                        </div>
                         <div className="grid grid-cols-2 gap-4"> <div> <label className="block text-xs text-[var(--text-secondary)] mb-1 font-bold">Temperature: {activeConfig.temperature}</label> <input type="range" min="0" max="2" step="0.1" value={activeConfig.temperature} onChange={(e) => updateConfig({ temperature: parseFloat(e.target.value) })} className="w-full accent-[var(--accent-primary)]" /> </div> <div> <label className="block text-xs text-[var(--text-secondary)] mb-1 font-bold">Max Output Tokens</label> <select value={activeConfig.maxOutputTokens} onChange={(e) => updateConfig({ maxOutputTokens: parseInt(e.target.value) })} className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-1 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none"> <option value={2048}>2,048 (2k)</option> <option value={4096}>4,096 (4k)</option> <option value={8192}>8,192 (8k)</option> <option value={16384}>16,384 (16k)</option> <option value={32768}>32,768 (32k)</option> <option value={65536}>65,536 (64k)</option> <option value={131072}>131,072 (128k)</option> <option value={1048576}>1,048,576 (1M)</option> </select> </div> </div>
-                        {isThinkingModel && ( <div className="bg-blue-900/10 p-2 rounded border border-blue-800/30"> <label className="block text-xs text-[var(--accent-secondary)] mb-1 font-bold flex items-center gap-1"> <SparklesIcon className="w-3 h-3" /> Thinking Budget ({settings.activeModel}) </label> <select value={activeConfig.thinkingBudget} onChange={(e) => updateConfig({ thinkingBudget: Number(e.target.value) })} className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-1 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none"> <option value={0}>Disabled (0)</option> <option value={2048}>Light (2k)</option> <option value={8192}>Standard (8k)</option> <option value={16384}>High (16k)</option> <option value={32768}>Extended (32k)</option> <option value={48000}>Deep (48k)</option> <option value={65536}>Maximum (64k)</option> </select> </div> )}
+                        {isThinkingModel && ( 
+                            <div className="bg-blue-900/10 p-2 rounded border border-blue-800/30"> 
+                                <label className="block text-xs text-[var(--accent-secondary)] mb-1 font-bold flex items-center gap-1"> 
+                                    <SparklesIcon className="w-3 h-3" /> Thinking Budget ({settings.activeModel}) 
+                                </label> 
+                                <select value={activeConfig.thinkingBudget} onChange={(e) => updateConfig({ thinkingBudget: Number(e.target.value) })} className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded p-1 text-[10px] text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none"> 
+                                    <option value={-1}>Auto (-1)</option>
+                                    <option value={0}>Disabled (0)</option> 
+                                    <option value={2048}>Light (2k)</option> 
+                                    <option value={8192}>Standard (8k)</option> 
+                                    <option value={16384}>High (16k)</option> 
+                                    <option value={32768}>Extended (32k)</option> 
+                                    <option value={48000}>Deep (48k)</option> 
+                                    <option value={65536}>Maximum (64k)</option> 
+                                </select> 
+                                <div className="mt-2 flex items-center gap-2">
+                                  <input 
+                                    type="checkbox" 
+                                    id="includeThoughts" 
+                                    checked={activeConfig.includeThoughts ?? true}
+                                    onChange={(e) => updateConfig({ includeThoughts: e.target.checked })}
+                                    className="rounded border-gray-600 bg-gray-700 text-[var(--accent-primary)] focus:ring-[var(--accent-primary)] cursor-pointer" 
+                                  />
+                                  <label htmlFor="includeThoughts" className="text-[10px] text-[var(--text-secondary)] cursor-pointer select-none">
+                                    Include Thoughts
+                                  </label>
+                                </div>
+                            </div> 
+                        )}
                      </div>
                     )}
                    </div>
@@ -570,13 +644,29 @@ export const EditorTab: React.FC<EditorTabProps> = ({
                 <div className="flex-1 overflow-y-auto overflow-x-auto p-4 space-y-4" ref={sidebarRef}>
                   {activePlanId === null && (
                     <div className="space-y-3 animate-fade-in">
-                        {/* ... Input Fields Preserved ... */}
                       <div className="text-xs font-mono text-gray-500 mb-2 flex items-center justify-between"> <span>Model: <span className="text-[var(--accent-secondary)]">{settings.activeModel}</span></span> <span className={`text-[10px] ${getApiKey() ? 'text-green-500' : 'text-red-500'} font-bold`}>{getApiKey() ? 'API Key Active' : 'API Key Missing'}</span> </div>
                       <div className="flex items-center justify-between p-2 bg-[var(--bg-tertiary)] rounded border border-[var(--border-color)]"> <div className="flex items-center gap-2"> <Square2StackIcon className={`w-4 h-4 ${isProjectMode ? 'text-[var(--accent-primary)]' : 'text-gray-500'}`} /> <span className="text-xs font-medium">Modular Project</span> </div> <label className="relative inline-flex items-center cursor-pointer"> <input type="checkbox" className="sr-only peer" checked={isProjectMode} onChange={(e) => setIsProjectMode(e.target.checked)} /> <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div> </label> </div>
                       <div> <label className="block text-xs text-[var(--text-secondary)] mb-1">Instruction</label> <textarea className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none resize-y min-h-[80px]" placeholder={isProjectMode ? "e.g. Create a Todo App with components/TodoItem.tsx, utils/api.ts..." : "e.g. Create a React hook for fetching user data..."} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} /> </div>
                       <div> <label className="block text-xs text-[var(--text-secondary)] mb-1">Language</label> <input type="text" className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none" placeholder="e.g. React, Typescript, Python" maxLength={30} value={aiLanguage} onChange={(e) => setAiLanguage(e.target.value)} /> </div>
                       {isThinkingModel && ( <div className="flex items-center justify-between p-2 bg-[var(--bg-tertiary)]/50 rounded border border-[var(--border-color)]"> <div className="flex items-center gap-2"> <input type="checkbox" id="chkHierarchy" checked={useHierarchyDepth} onChange={(e) => setUseHierarchyDepth(e.target.checked)} className="rounded border-gray-600 bg-gray-700 text-[var(--accent-primary)] focus:ring-[var(--accent-primary)] cursor-pointer" /> <label htmlFor="chkHierarchy" className="text-xs text-[var(--text-secondary)] cursor-pointer select-none"> Max Hierarchy Depth </label> </div> <select value={hierarchyDepth} onChange={(e) => setHierarchyDepth(Number(e.target.value))} disabled={!useHierarchyDepth} className={`bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none w-16 text-center transition-opacity ${!useHierarchyDepth ? 'opacity-40' : ''}`}> {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}</option>)} </select> </div> )}
-                      {isThinkingModel && ( <div> <label className="block text-xs text-[var(--text-secondary)] mb-1 flex justify-between"> Thinking Intensity {showAdvancedConfig && <span className="text-orange-400 text-[10px]">(Managed in Dev Console)</span>} </label> <select value={activeConfig.thinkingBudget} onChange={(e) => updateConfig({ thinkingBudget: Number(e.target.value) })} disabled={showAdvancedConfig} className={`w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none ${showAdvancedConfig ? 'opacity-50 cursor-not-allowed' : ''}`}> <option value={2048}>Light (2k Tokens)</option> <option value={4096}>Medium (4k Tokens)</option> <option value={8192}>High (8k Tokens)</option> <option value={16384}>Balanced (16k Tokens)</option> <option value={32768}>Extended (32k Tokens)</option> <option value={48000}>Deep (48k Tokens)</option> </select> </div> )}
+                      {isThinkingModel && ( 
+                        <div> 
+                            <label className="block text-xs text-[var(--text-secondary)] mb-1 flex justify-between"> 
+                                Thinking Intensity {showAdvancedConfig && <span className="text-orange-400 text-[10px]">(Managed in Dev Console)</span>} 
+                            </label> 
+                            <select value={activeConfig.thinkingBudget} onChange={(e) => updateConfig({ thinkingBudget: Number(e.target.value) })} disabled={showAdvancedConfig} className={`w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none ${showAdvancedConfig ? 'opacity-50 cursor-not-allowed' : ''}`}> 
+                                <option value={-1}>Auto (-1)</option>
+                                <option value={0}>Disabled (0)</option>
+                                <option value={2048}>Light (2k Tokens)</option> 
+                                <option value={4096}>Medium (4k Tokens)</option> 
+                                <option value={8192}>High (8k Tokens)</option> 
+                                <option value={16384}>Balanced (16k Tokens)</option> 
+                                <option value={32768}>Extended (32k Tokens)</option> 
+                                <option value={48000}>Deep (48k Tokens)</option> 
+                                <option value={65536}>Maximum (64k Tokens)</option>
+                            </select> 
+                        </div> 
+                      )}
                       {aiError && <div className="p-2 bg-red-900/30 border border-red-800 rounded text-xs text-red-300 flex items-start gap-2"><ExclamationTriangleIcon className="w-4 h-4 flex-none mt-0.5" /><span>{aiError}</span></div>}
                       {isGeneratingPlan ? ( <button onClick={cancelGeneration} className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-medium transition-colors flex justify-center items-center gap-2"><StopCircleIcon className="w-4 h-4" />Cancel</button> ) : ( <button onClick={generateAIPlan} disabled={!aiPrompt} className="w-full bg-[var(--accent-primary)] hover:opacity-90 text-white py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">Generate {isProjectMode ? 'Project' : 'Code'}</button> )}
                       {isGeneratingPlan && ( <div className="mt-3 p-2 bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/30 rounded text-center"> <div className="flex items-center justify-center gap-2 text-xs text-[var(--accent-secondary)] font-medium mb-0.5"> <ArrowPathIcon className="w-3 h-3 animate-spin" /> <span>Processing Request...</span> </div> <p className="text-[10px] text-[var(--text-secondary)]"> Request received. Waiting for model response. </p> </div> )}

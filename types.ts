@@ -14,10 +14,22 @@ export enum SupportedLanguage {
   CSS = 'css',
   JSON = 'json',
   MARKDOWN = 'markdown',
-  SQL = 'sql'
+  SQL = 'sql',
+  JAVA = 'java',
+  CSHARP = 'csharp',
+  CPP = 'cpp',
+  GO = 'go',
+  RUST = 'rust',
+  PHP = 'php',
+  RUBY = 'ruby',
+  SWIFT = 'swift',
+  KOTLIN = 'kotlin',
+  BASH = 'bash',
+  YAML = 'yaml',
+  XML = 'xml'
 }
 
-export type AIModelId = 'gemini-2.5-flash' | 'gemini-2.5-pro' | 'gemini-3-pro-preview';
+export type AIModelId = 'gemini-2.5-flash' | 'gemini-2.5-pro' | 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
 
 export interface EditorFile {
   id: string;
@@ -41,6 +53,8 @@ export interface AdvancedConfig {
   temperature: number;
   maxOutputTokens: number;
   thinkingBudget: number;
+  includeThoughts: boolean;
+  useResponseSchema: boolean;
 }
 
 export interface AICodeBlock {

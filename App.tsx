@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { EditorTab } from './components/EditorTab';
 import { SettingsTab } from './components/SettingsTab';
@@ -73,9 +74,18 @@ const App: React.FC = () => {
       window.addEventListener('touchstart', handleZoneInteraction);
       window.addEventListener('mousemove', handleZoneInteraction);
       
+      const handleResize = () => {
+        if (window.innerWidth >= 768) {
+            setImmersiveMode(false);
+            if(activityTimer.current) clearTimeout(activityTimer.current);
+        }
+      };
+      window.addEventListener('resize', handleResize);
+
       return () => {
           window.removeEventListener('touchstart', handleZoneInteraction);
           window.removeEventListener('mousemove', handleZoneInteraction);
+          window.removeEventListener('resize', handleResize);
           if(activityTimer.current) clearTimeout(activityTimer.current);
       };
   }, []);
@@ -587,6 +597,7 @@ const App: React.FC = () => {
                 >
                   <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                   <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-3-flash-preview">Gemini 3.0 Flash</option>
                   <option value="gemini-3-pro-preview">Gemini 3.0 Pro</option>
                 </select>
              </div>
@@ -782,5 +793,4 @@ const App: React.FC = () => {
     </div>
   );
 };
-
 export default App;

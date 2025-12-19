@@ -11,6 +11,7 @@ import {
   PhotoIcon,
   XMarkIcon,
   WrenchScrewdriverIcon,
+  ChevronUpIcon,
 } from './Icons';
 
 interface WorkflowTabProps {
@@ -69,6 +70,11 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
           x: (e.clientX - rect.left) / zoom,
           y: (e.clientY - rect.top) / zoom
       };
+  };
+
+  const moveSelectedNode = (dx: number, dy: number) => {
+    if (!selectedNodeId) return;
+    setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, x: n.x + dx, y: n.y + dy } : n));
   };
 
   // --- Handlers ---
@@ -540,7 +546,8 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
 
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
             {/* --- Palette Sidebar (Desktop) / Toolbar (Mobile) --- */}
-            <div className="order-2 md:order-1 flex-none w-full h-20 md:w-60 md:h-full bg-gray-900 border-t md:border-t-0 md:border-r border-gray-800 flex flex-row md:flex-col z-10 shadow-xl overflow-x-auto md:overflow-y-auto overflow-y-hidden">
+            {/* Changed Order to appear first visually on desktop left, second on mobile bottom */}
+            <div className="order-2 md:order-1 flex-none w-full h-24 md:w-60 md:h-full bg-gray-900 border-t md:border-t-0 md:border-r border-gray-800 flex flex-row md:flex-col z-30 shadow-xl overflow-x-auto md:overflow-y-auto overflow-y-hidden">
                 <div className="hidden md:block p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-gray-900/50 sticky top-0">
                     Symbol Library
                 </div>
@@ -580,9 +587,10 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
             </div>
 
             {/* --- Canvas Area --- */}
+            {/* Changed Order to appear second visually on desktop center, first on mobile top */}
             <div 
                 ref={canvasRef}
-                className="order-1 md:order-2 flex-1 relative bg-gray-950 overflow-hidden cursor-crosshair touch-none"
+                className="order-1 md:order-2 flex-1 relative bg-gray-950 overflow-hidden cursor-crosshair touch-none z-0"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onMouseMove={handleCanvasMouseMove}
@@ -649,9 +657,9 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 )}
             </div>
 
-            {/* --- Inspector Panel (Right) --- */}
+            {/* --- Inspector Panel (Right Desktop / Bottom Sheet Mobile) --- */}
             {(selectedNode || selectedEdge) && (
-                <div className="absolute right-0 top-0 bottom-0 md:relative w-64 bg-gray-900 border-l border-gray-800 p-4 flex flex-col z-30 animate-fade-in shadow-xl h-full overflow-y-auto">
+                <div className="absolute left-0 right-0 bottom-0 h-[45vh] md:h-auto md:inset-y-0 md:right-0 md:left-auto md:w-72 bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 p-4 flex flex-col z-40 shadow-2xl overflow-y-auto md:order-3">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
                         <span className="text-xs font-bold text-gray-500 uppercase">
                             {selectedNode ? 'Node Inspector' : 'Edge Inspector'}
@@ -668,7 +676,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                         value={selectedNode.label}
                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, label: e.target.value } : n))}
                                         className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                                        rows={3}
+                                        rows={2}
                                     />
                                 </div>
 
@@ -683,6 +691,57 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                                 style={{ backgroundColor: color }}
                                             />
                                         ))}
+                                    </div>
+                                </div>
+
+                                {/* Mobile Movement Controls */}
+                                <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                                    <label className="block text-xs text-gray-500 mb-2 font-bold uppercase">Position & Movement</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-gray-500 mr-1">X</span>
+                                            <input 
+                                                type="number" 
+                                                value={Math.round(selectedNode.x)} 
+                                                onChange={(e) => moveSelectedNode(Number(e.target.value) - selectedNode.x, 0)}
+                                                className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-gray-500 mr-1">Y</span>
+                                            <input 
+                                                type="number" 
+                                                value={Math.round(selectedNode.y)} 
+                                                onChange={(e) => moveSelectedNode(0, Number(e.target.value) - selectedNode.y)}
+                                                className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* D-Pad Grid */}
+                                    <div className="grid grid-cols-3 gap-1 w-24 mx-auto">
+                                        <div />
+                                        <button onClick={() => moveSelectedNode(0, -10)} className="bg-gray-700 hover:bg-gray-600 p-1 rounded text-white active:bg-blue-600 flex justify-center">
+                                            <ChevronUpIcon className="w-4 h-4" />
+                                        </button>
+                                        <div />
+                                        
+                                        <button onClick={() => moveSelectedNode(-10, 0)} className="bg-gray-700 hover:bg-gray-600 p-1 rounded text-white active:bg-blue-600 flex justify-center">
+                                            <ChevronUpIcon className="w-4 h-4 -rotate-90" />
+                                        </button>
+                                        <div className="w-4 h-4 bg-gray-600 rounded-full m-auto opacity-50" />
+                                        <button onClick={() => moveSelectedNode(10, 0)} className="bg-gray-700 hover:bg-gray-600 p-1 rounded text-white active:bg-blue-600 flex justify-center">
+                                            <ChevronUpIcon className="w-4 h-4 rotate-90" />
+                                        </button>
+
+                                        <div />
+                                        <button onClick={() => moveSelectedNode(0, 10)} className="bg-gray-700 hover:bg-gray-600 p-1 rounded text-white active:bg-blue-600 flex justify-center">
+                                            <ChevronUpIcon className="w-4 h-4 rotate-180" />
+                                        </button>
+                                        <div />
+                                    </div>
+                                    <div className="text-center mt-1">
+                                       <span className="text-[9px] text-gray-500">Tap arrows to nudge</span>
                                     </div>
                                 </div>
                             </>
@@ -737,7 +796,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                             </>
                         )}
 
-                        <div className="pt-4 border-t border-gray-800">
+                        <div className="pt-4 border-t border-gray-800 pb-10 md:pb-0">
                             <button 
                                 onClick={deleteSelected}
                                 className="w-full bg-red-900/30 border border-red-900 text-red-400 py-2 rounded text-sm hover:bg-red-900/50 transition-colors flex justify-center items-center gap-2"
