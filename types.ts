@@ -144,10 +144,14 @@ export interface WorkflowNode {
   height?: number;
 }
 
+export type HandlePosition = 'top' | 'right' | 'bottom' | 'left';
+
 export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: HandlePosition;
+  targetHandle?: HandlePosition;
   label?: string;
   type?: 'straight' | 'curved';
   controlPoints?: { x: number; y: number }[];
