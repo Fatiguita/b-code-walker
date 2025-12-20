@@ -1,9 +1,11 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   WorkflowNode, 
   WorkflowEdge, 
   WorkflowNodeType, 
-  WorkflowState 
+  WorkflowState,
+  HandlePosition
 } from '../types';
 import { 
   ArrowPathIcon, 
@@ -41,11 +43,15 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   // Drag logic helpers
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 }); // Mouse screen pos
   const [nodeStartPos, setNodeStartPos] = useState({ x: 0, y: 0 }); // Node canvas pos
+  // NEW: Store initial edge control points for synced dragging
+  const [edgeStartSnapshots, setEdgeStartSnapshots] = useState<{id: string, cp: {x:number, y:number}[]}[]>([]);
   const [didMove, setDidMove] = useState(false);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [connectionMode, setConnectionMode] = useState<{ active: boolean; sourceId: string | null }>({ active: false, sourceId: null });
+  
+  // Updated Connection Mode State to include Handle info
+  const [connectionMode, setConnectionMode] = useState<{ active: boolean; sourceId: string | null; sourceHandle: HandlePosition | null }>({ active: false, sourceId: null, sourceHandle: null });
   
   // TAP-TO-PLACE Mode (Mobile Fix)
   const [activeTool, setActiveTool] = useState<WorkflowNodeType | null>(null);
@@ -74,7 +80,42 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
 
   const moveSelectedNode = (dx: number, dy: number) => {
     if (!selectedNodeId) return;
+    
+    // Update node position
     setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+    
+    // Update connected edges' control points relative to movement
+    setEdges(prev => prev.map(e => {
+        if (!e.controlPoints) return e;
+        const newCPs = [...e.controlPoints];
+        let updated = false;
+        
+        if (e.source === selectedNodeId) {
+            newCPs[0] = { x: newCPs[0].x + dx, y: newCPs[0].y + dy };
+            updated = true;
+        }
+        if (e.target === selectedNodeId) {
+            newCPs[1] = { x: newCPs[1].x + dx, y: newCPs[1].y + dy };
+            updated = true;
+        }
+        return updated ? { ...e, controlPoints: newCPs } : e;
+    }));
+  };
+
+  // Helper to get absolute coordinates of a specific handle
+  const getHandleCoords = (node: WorkflowNode, handle: HandlePosition) => {
+      const w = node.width || 120;
+      const h = node.height || 60;
+      let x = node.x;
+      let y = node.y;
+
+      switch (handle) {
+          case 'top': x += w / 2; break;
+          case 'right': x += w; y += h / 2; break;
+          case 'bottom': x += w / 2; y += h; break;
+          case 'left': y += h / 2; break;
+      }
+      return { x, y };
   };
 
   // --- Handlers ---
@@ -121,13 +162,10 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
     if (e.button === 2) {
         setSelectedNodeId(id);
         setSelectedEdgeId(null);
-        return; // Let context menu logic handle or just open inspector
+        return; 
     }
 
-    if (connectionMode.active) {
-        handleConnectionClick(id);
-        return;
-    }
+    if (connectionMode.active) return;
 
     const node = nodes.find(n => n.id === id);
     if (!node) return;
@@ -135,28 +173,62 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
     setDraggingId(id);
     setDragStartPos({ x: e.clientX, y: e.clientY });
     setNodeStartPos({ x: node.x, y: node.y });
+    
+    // Capture snapshots of connected edges to move their handles
+    const attachedEdges = edges.filter(e => e.source === id || e.target === id);
+    setEdgeStartSnapshots(attachedEdges.map(e => ({
+        id: e.id,
+        cp: e.controlPoints ? [...e.controlPoints] : []
+    })));
+    
     setDidMove(false);
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
-    // If moving, cancel any pending long press (for mouse users mostly, touch handled separately)
     if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
     }
 
     if (draggingId) {
-        // Calculate delta in zoom-independent screen pixels, then divide by zoom
         const dx = (e.clientX - dragStartPos.x) / zoom;
         const dy = (e.clientY - dragStartPos.y) / zoom;
 
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) setDidMove(true);
 
+        // Update Node Position
         setNodes(prev => prev.map(n => n.id === draggingId ? { 
             ...n, 
             x: nodeStartPos.x + dx, 
             y: nodeStartPos.y + dy 
         } : n));
+
+        // Update Connected Edge Handles (Synchronized Movement)
+        setEdges(prev => prev.map(edge => {
+            const snapshot = edgeStartSnapshots.find(s => s.id === edge.id);
+            if (!snapshot || !snapshot.cp.length) return edge;
+
+            const newCPs = [...edge.controlPoints || []];
+            
+            // If dragging source node, move start control point (cp[0])
+            if (edge.source === draggingId && snapshot.cp[0]) {
+                newCPs[0] = { 
+                    x: snapshot.cp[0].x + dx, 
+                    y: snapshot.cp[0].y + dy 
+                };
+            }
+            
+            // If dragging target node, move end control point (cp[1])
+            if (edge.target === draggingId && snapshot.cp[1]) {
+                newCPs[1] = { 
+                    x: snapshot.cp[1].x + dx, 
+                    y: snapshot.cp[1].y + dy 
+                };
+            }
+
+            return { ...edge, controlPoints: newCPs };
+        }));
+
     } else if (draggingControlPoint) {
         // Dragging a Bezier Handle
         const coords = getCanvasCoordinates(e);
@@ -172,32 +244,26 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   };
 
   const handleCanvasMouseUp = () => {
-    // If we released a node and didn't move it much, treat as click
     if (draggingId && !didMove) {
         setSelectedNodeId(draggingId);
         setSelectedEdgeId(null);
     }
-    
     setDraggingId(null);
     setDraggingControlPoint(null);
+    setEdgeStartSnapshots([]);
   };
 
   // --- Mobile Touch Handlers ---
   const handleNodeTouchStart = (id: string) => {
-      // Start long press timer
       longPressTimer.current = setTimeout(() => {
-          // Trigger Selection / Context Menu equivalent
           setSelectedNodeId(id);
           setSelectedEdgeId(null);
-          // Haptic feedback if available
           if (navigator.vibrate) navigator.vibrate(50);
-          
           longPressTimer.current = null;
       }, 600); 
   };
 
   const handleNodeTouchMove = () => {
-      // If user moves finger (scrolls or drags), cancel long press
       if (longPressTimer.current) {
           clearTimeout(longPressTimer.current);
           longPressTimer.current = null;
@@ -208,60 +274,118 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
       if (longPressTimer.current) {
           clearTimeout(longPressTimer.current);
           longPressTimer.current = null;
-          // Normal tap actions are usually handled by onClick or MouseUp that often fire after touch
       }
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-      // Tap-to-Place Logic
       if (activeTool) {
           const coords = getCanvasCoordinates(e);
           createNode(activeTool, coords.x, coords.y);
-          // Optional: Reset active tool after placement, or keep it active for multiple?
-          // Resetting feels more natural for mobile so you don't accidentally spam nodes.
           setActiveTool(null); 
           return;
       }
-
-      // Background click
       if (!draggingId && !draggingControlPoint && !didMove) {
           setSelectedNodeId(null);
           setSelectedEdgeId(null);
       }
   };
 
-  const handleConnectionClick = (id: string) => {
-      if (!connectionMode.sourceId) {
-          setConnectionMode({ ...connectionMode, sourceId: id });
-      } else {
-          if (connectionMode.sourceId !== id) {
-              const src = nodes.find(n => n.id === connectionMode.sourceId);
-              const tgt = nodes.find(n => n.id === id);
-              
-              if (src && tgt) {
-                  // Intelligent default curve points
-                  const sx = src.x + 60; // center width
-                  const sy = src.y + 30; // center height
-                  const tx = tgt.x + 60;
-                  const ty = tgt.y + 30;
-                  
-                  const isVertical = Math.abs(ty - sy) > Math.abs(tx - sx);
-                  const cp1 = isVertical ? { x: sx, y: sy + 50 } : { x: sx + 50, y: sy };
-                  const cp2 = isVertical ? { x: tx, y: ty - 50 } : { x: tx - 50, y: ty };
+  const handleConnectClick = (e: React.MouseEvent, nodeId: string, handle: HandlePosition) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      if (!connectionMode.active) return;
 
-                  const newEdge: WorkflowEdge = {
-                      id: `e-${Date.now()}`,
-                      source: connectionMode.sourceId,
-                      target: id,
-                      type: 'straight',
-                      controlPoints: [cp1, cp2] // Pre-calculate but don't use unless curved
-                  };
+      if (!connectionMode.sourceId) {
+          setConnectionMode({ ...connectionMode, sourceId: nodeId, sourceHandle: handle });
+      } else {
+          const sourceId = connectionMode.sourceId;
+          const sourceHandle = connectionMode.sourceHandle || 'right'; // Fallback
+          
+          const src = nodes.find(n => n.id === sourceId);
+          const tgt = nodes.find(n => n.id === nodeId);
+          
+          if (src && tgt) {
+              const start = getHandleCoords(src, sourceHandle);
+              const end = getHandleCoords(tgt, handle);
+              
+              // Smart default Control Points for Bezier
+              const dist = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+              const controlDist = Math.max(dist * 0.5, 50);
+
+              const getControlOffset = (h: HandlePosition, d: number) => {
+                  switch(h) {
+                      case 'top': return { x: 0, y: -d };
+                      case 'bottom': return { x: 0, y: d };
+                      case 'left': return { x: -d, y: 0 };
+                      case 'right': return { x: d, y: 0 };
+                  }
+              };
+
+              const srcOffset = getControlOffset(sourceHandle, controlDist);
+              const tgtOffset = getControlOffset(handle, controlDist);
+
+              // Basic CP coordinates
+              const cp1 = { x: start.x + srcOffset.x, y: start.y + srcOffset.y };
+              const cp2 = { x: end.x + tgtOffset.x, y: end.y + tgtOffset.y };
+
+              // --- INITIAL CONTROL POINT OFFSET PREVENTION ---
+              // Check how many existing edges connect these two nodes (in any direction)
+              const existingEdges = edges.filter(ed => 
+                  (ed.source === sourceId && ed.target === nodeId) ||
+                  (ed.source === nodeId && ed.target === sourceId)
+              );
+              
+              // If multiple connections exist, fan out the control points initially
+              if (existingEdges.length > 0 && sourceId !== nodeId) {
+                  const count = existingEdges.length;
+                  // Alternate offset: +30, -30, +60, -60...
+                  const offsetMag = Math.ceil((count + 1) / 2) * 40; 
+                  const sign = (count % 2 === 0) ? 1 : -1;
+                  const offset = offsetMag * sign;
+
+                  // Apply perpendicular offset to Bezier handles
+                  if (sourceHandle === 'left' || sourceHandle === 'right') {
+                      cp1.y += offset; 
+                  } else {
+                      cp1.x += offset;
+                  }
                   
-                  const exists = edges.some(e => e.source === newEdge.source && e.target === newEdge.target);
-                  if (!exists) setEdges(prev => [...prev, newEdge]);
+                  if (handle === 'left' || handle === 'right') {
+                      cp2.y += offset;
+                  } else {
+                      cp2.x += offset;
+                  }
               }
-              setConnectionMode({ active: false, sourceId: null });
+
+              // Self-loop special case
+              if (sourceId === nodeId) {
+                 const selfLoopCount = existingEdges.length;
+                 const expand = 50 + (selfLoopCount * 20);
+                 
+                 cp1.x += (sourceHandle === 'right' ? expand : sourceHandle === 'left' ? -expand : 0);
+                 cp1.y += (sourceHandle === 'bottom' ? expand : sourceHandle === 'top' ? -expand : 0);
+                 
+                 if (sourceHandle === handle) {
+                     cp2.x = cp1.x; 
+                     cp2.y = cp1.y + (sourceHandle === 'top' || sourceHandle === 'bottom' ? 0 : 50);
+                 }
+              }
+
+              const newEdge: WorkflowEdge = {
+                  id: `e-${Date.now()}`,
+                  source: sourceId,
+                  target: nodeId,
+                  sourceHandle: sourceHandle,
+                  targetHandle: handle,
+                  type: 'curved',
+                  controlPoints: [cp1, cp2]
+              };
+              
+              setEdges(prev => [...prev, newEdge]);
           }
+          
+          setConnectionMode({ active: false, sourceId: null, sourceHandle: null });
       }
   };
 
@@ -276,41 +400,8 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
       }
   };
 
-  // --- Curve Management ---
-
   const initCurve = (edgeId: string) => {
-      setEdges(prev => prev.map(e => {
-          if (e.id === edgeId) {
-              // Calculate default CPs if they don't exist
-              const src = nodes.find(n => n.id === e.source);
-              const tgt = nodes.find(n => n.id === e.target);
-              if (src && tgt) {
-                  const sx = src.x + (src.width||120)/2;
-                  const sy = src.y + (src.height||60)/2;
-                  const tx = tgt.x + (tgt.width||120)/2;
-                  const ty = tgt.y + (tgt.height||60)/2;
-                  
-                  const dx = Math.abs(tx - sx);
-                  const dy = Math.abs(ty - sy);
-                  
-                  // Bias curve based on layout
-                  let cp1, cp2;
-                  if (dy > dx) {
-                      // Vertical flow
-                      cp1 = { x: sx, y: sy + dy * 0.4 };
-                      cp2 = { x: tx, y: ty - dy * 0.4 };
-                  } else {
-                      // Horizontal flow
-                      cp1 = { x: sx + dx * 0.4, y: sy };
-                      cp2 = { x: tx - dx * 0.4, y: ty };
-                  }
-                  
-                  return { ...e, type: 'curved', controlPoints: [cp1, cp2] };
-              }
-              return { ...e, type: 'curved', controlPoints: [] };
-          }
-          return e;
-      }));
+      // Re-initialize curve if user switches type back to curved manually
   };
 
   const exportAsImage = () => {
@@ -319,6 +410,8 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
       // Hide handles in export
       const handles = clone.querySelectorAll('.control-handle');
       handles.forEach(h => h.remove());
+      const connectors = clone.querySelectorAll('.node-connector');
+      connectors.forEach(c => c.remove());
       
       const contentGroup = clone.getElementById('workflow-content');
       if(contentGroup) contentGroup.setAttribute('transform', 'scale(1)');
@@ -329,10 +422,8 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
       const img = new Image();
       
       const bbox = svgRef.current.getBBox(); 
-      // Add padding
       const width = (bbox.width || 800) + 100;
       const height = (bbox.height || 600) + 100;
-      // Offset to capture negative coords
       const offsetX = -bbox.x + 50;
       const offsetY = -bbox.y + 50;
       
@@ -359,6 +450,37 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   };
 
   // --- Renderers ---
+
+  const renderHandles = (node: WorkflowNode) => {
+      const w = node.width || 120;
+      const h = node.height || 60;
+      const handles: { h: HandlePosition; x: number; y: number }[] = [
+          { h: 'top', x: w/2, y: 0 },
+          { h: 'right', x: w, y: h/2 },
+          { h: 'bottom', x: w/2, y: h },
+          { h: 'left', x: 0, y: h/2 }
+      ];
+
+      return handles.map(handle => {
+          const isSource = connectionMode.sourceId === node.id && connectionMode.sourceHandle === handle.h;
+          
+          return (
+              <circle
+                  key={handle.h}
+                  cx={handle.x}
+                  cy={handle.y}
+                  r={6}
+                  className={`node-connector transition-all duration-200 ${
+                      connectionMode.active ? 'opacity-100 cursor-pointer' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                  fill={isSource ? '#22c55e' : '#3b82f6'}
+                  stroke="#111827"
+                  strokeWidth={2}
+                  onMouseDown={(e) => handleConnectClick(e, node.id, handle.h)}
+              />
+          );
+      });
+  };
 
   const renderNodeShape = (node: WorkflowNode) => {
       const w = node.width || 120;
@@ -387,56 +509,49 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
           const tgt = nodes.find(n => n.id === edge.target);
           if (!src || !tgt) return null;
 
-          const sx = src.x + (src.width||120)/2;
-          const sy = src.y + (src.height||60)/2;
-          const tx = tgt.x + (tgt.width||120)/2;
-          const ty = tgt.y + (tgt.height||60)/2;
+          const start = getHandleCoords(src, edge.sourceHandle || 'right');
+          const end = getHandleCoords(tgt, edge.targetHandle || 'left');
 
-          // Calculate trim for arrowhead
-          // We need the line to stop at the edge of the node, not the center
-          // Nodes are roughly 120x60. Radius approx 60.
-          const offset = 65; 
-          let dirX, dirY;
-          
-          if (edge.type === 'curved' && edge.controlPoints && edge.controlPoints.length >= 2) {
-              // Direction from last control point to target
-              const lastCP = edge.controlPoints[1];
-              dirX = tx - lastCP.x;
-              dirY = ty - lastCP.y;
-          } else {
-              // Direction from source to target
-              dirX = tx - sx;
-              dirY = ty - sy;
+          // --- Automatic Start/End Offset Distribution ---
+          // Prevent overlapping lines from same port by offsetting them slightly
+          const sourceHandle = edge.sourceHandle || 'right';
+          const sourceSiblings = edges.filter(e => e.source === edge.source && (e.sourceHandle || 'right') === sourceHandle);
+          if (sourceSiblings.length > 1) {
+              const idx = sourceSiblings.findIndex(e => e.id === edge.id);
+              if (idx !== -1) {
+                  // Distribute within +/- 15px
+                  const offset = (idx - (sourceSiblings.length - 1) / 2) * 12;
+                  if (sourceHandle === 'left' || sourceHandle === 'right') start.y += offset;
+                  else start.x += offset;
+              }
           }
 
-          // Normalize and retract endpoint
-          const len = Math.sqrt(dirX*dirX + dirY*dirY);
-          let endX = tx;
-          let endY = ty;
-          
-          if (len > 0) {
-              const uX = dirX / len;
-              const uY = dirY / len;
-              endX = tx - (uX * offset);
-              endY = ty - (uY * offset);
+          const targetHandle = edge.targetHandle || 'left';
+          const targetSiblings = edges.filter(e => e.target === edge.target && (e.targetHandle || 'left') === targetHandle);
+          if (targetSiblings.length > 1) {
+              const idx = targetSiblings.findIndex(e => e.id === edge.id);
+              if (idx !== -1) {
+                  const offset = (idx - (targetSiblings.length - 1) / 2) * 12;
+                  if (targetHandle === 'left' || targetHandle === 'right') end.y += offset;
+                  else end.x += offset;
+              }
           }
 
           let pathD = '';
-          let midX = (sx + endX) / 2;
-          let midY = (sy + endY) / 2;
+          let midX = (start.x + end.x) / 2;
+          let midY = (start.y + end.y) / 2;
 
           if (edge.type === 'curved' && edge.controlPoints && edge.controlPoints.length >= 2) {
               const cp1 = edge.controlPoints[0];
               const cp2 = edge.controlPoints[1];
-              pathD = `M${sx},${sy} C${cp1.x},${cp1.y}, ${cp2.x},${cp2.y}, ${endX},${endY}`;
+              pathD = `M${start.x},${start.y} C${cp1.x},${cp1.y}, ${cp2.x},${cp2.y}, ${end.x},${end.y}`;
               
-              // Approximate midpoint for label using Bezier formula at t=0.5
+              // Approximate midpoint for label
               const t = 0.5;
-              midX = (1-t)**3 * sx + 3*(1-t)**2 * t * cp1.x + 3*(1-t) * t**2 * cp2.x + t**3 * endX;
-              midY = (1-t)**3 * sy + 3*(1-t)**2 * t * cp1.y + 3*(1-t) * t**2 * cp2.y + t**3 * endY;
+              midX = (1-t)**3 * start.x + 3*(1-t)**2 * t * cp1.x + 3*(1-t) * t**2 * cp2.x + t**3 * end.x;
+              midY = (1-t)**3 * start.y + 3*(1-t)**2 * t * cp1.y + 3*(1-t) * t**2 * cp2.y + t**3 * end.y;
           } else {
-              // Straight Line fallback
-              pathD = `M${sx},${sy} L${endX},${endY}`;
+              pathD = `M${start.x},${start.y} L${end.x},${end.y}`;
           }
 
           const isSelected = selectedEdgeId === edge.id;
@@ -464,20 +579,28 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                   {isSelected && edge.type === 'curved' && edge.controlPoints && (
                       <g className="control-handle">
                           {/* Guide Lines */}
-                          <path d={`M${sx},${sy} L${edge.controlPoints[0].x},${edge.controlPoints[0].y}`} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
-                          <path d={`M${endX},${endY} L${edge.controlPoints[1].x},${edge.controlPoints[1].y}`} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+                          <path d={`M${start.x},${start.y} L${edge.controlPoints[0].x},${edge.controlPoints[0].y}`} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
+                          <path d={`M${end.x},${end.y} L${edge.controlPoints[1].x},${edge.controlPoints[1].y}`} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 2" opacity="0.5" />
                           
-                          {/* Handles */}
-                          <circle 
-                             cx={edge.controlPoints[0].x} cy={edge.controlPoints[0].y} r="5" fill="#22c55e" stroke="white" strokeWidth="1"
-                             className="cursor-move hover:scale-125 transition-transform"
-                             onMouseDown={(e) => { e.stopPropagation(); setDraggingControlPoint({ edgeId: edge.id, index: 0 }); }}
-                          />
-                          <circle 
-                             cx={edge.controlPoints[1].x} cy={edge.controlPoints[1].y} r="5" fill="#22c55e" stroke="white" strokeWidth="1"
-                             className="cursor-move hover:scale-125 transition-transform"
-                             onMouseDown={(e) => { e.stopPropagation(); setDraggingControlPoint({ edgeId: edge.id, index: 1 }); }}
-                          />
+                          {/* Handle 1 */}
+                          <g 
+                             className="cursor-move"
+                             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setDraggingControlPoint({ edgeId: edge.id, index: 0 }); }}
+                          >
+                             {/* Transparent larger hit area for easier grabbing */}
+                             <circle cx={edge.controlPoints[0].x} cy={edge.controlPoints[0].y} r="15" fill="transparent" />
+                             {/* Visual Handle - No CSS transforms to avoid bouncing loop */}
+                             <circle cx={edge.controlPoints[0].x} cy={edge.controlPoints[0].y} r="6" fill="#22c55e" stroke="white" strokeWidth="1" />
+                          </g>
+
+                          {/* Handle 2 */}
+                          <g 
+                             className="cursor-move"
+                             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setDraggingControlPoint({ edgeId: edge.id, index: 1 }); }}
+                          >
+                             <circle cx={edge.controlPoints[1].x} cy={edge.controlPoints[1].y} r="15" fill="transparent" />
+                             <circle cx={edge.controlPoints[1].x} cy={edge.controlPoints[1].y} r="6" fill="#22c55e" stroke="white" strokeWidth="1" />
+                          </g>
                       </g>
                   )}
 
@@ -528,7 +651,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 <div className="h-8 w-px bg-gray-700 mx-2" />
                 
                 <button 
-                    onClick={() => setConnectionMode({ active: !connectionMode.active, sourceId: null })}
+                    onClick={() => setConnectionMode({ active: !connectionMode.active, sourceId: null, sourceHandle: null })}
                     className={`px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 border transition-all ${connectionMode.active ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'}`}
                 >
                     <ArrowPathIcon className="w-4 h-4" />
@@ -546,7 +669,6 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
 
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
             {/* --- Palette Sidebar (Desktop) / Toolbar (Mobile) --- */}
-            {/* Changed Order to appear first visually on desktop left, second on mobile bottom */}
             <div className="order-2 md:order-1 flex-none w-full h-24 md:w-60 md:h-full bg-gray-900 border-t md:border-t-0 md:border-r border-gray-800 flex flex-row md:flex-col z-30 shadow-xl overflow-x-auto md:overflow-y-auto overflow-y-hidden">
                 <div className="hidden md:block p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-gray-900/50 sticky top-0">
                     Symbol Library
@@ -587,7 +709,6 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
             </div>
 
             {/* --- Canvas Area --- */}
-            {/* Changed Order to appear second visually on desktop center, first on mobile top */}
             <div 
                 ref={canvasRef}
                 className="order-1 md:order-2 flex-1 relative bg-gray-950 overflow-hidden cursor-crosshair touch-none z-0"
@@ -630,7 +751,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                     setSelectedNodeId(node.id);
                                     setSelectedEdgeId(null);
                                 }}
-                                className={`cursor-pointer ${connectionMode.active ? 'hover:opacity-80' : 'cursor-move'}`}
+                                className={`group ${connectionMode.active ? 'cursor-pointer' : 'cursor-move'}`}
                             >
                                 {renderNodeShape(node)}
                                 <foreignObject x="0" y="0" width={node.width || 120} height={node.height || 60} style={{ pointerEvents: 'none' }}>
@@ -638,6 +759,8 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                         {node.label}
                                     </div>
                                 </foreignObject>
+                                {/* Render 4 Connector Handles */}
+                                {renderHandles(node)}
                             </g>
                         ))}
                     </g>
@@ -646,7 +769,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 {/* Selection / Connection Hint */}
                 {connectionMode.active && (
                     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none animate-bounce">
-                        {connectionMode.sourceId ? 'Select Target Node' : 'Select Source Node'}
+                        {connectionMode.sourceId ? 'Click Target Blue Dot' : 'Click Source Blue Dot'}
                     </div>
                 )}
                 
@@ -657,7 +780,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                 )}
             </div>
 
-            {/* --- Inspector Panel (Right Desktop / Bottom Sheet Mobile) --- */}
+            {/* --- Inspector Panel --- */}
             {(selectedNode || selectedEdge) && (
                 <div className="absolute left-0 right-0 bottom-0 h-[45vh] md:h-auto md:inset-y-0 md:right-0 md:left-auto md:w-72 bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 p-4 flex flex-col z-40 shadow-2xl overflow-y-auto md:order-3">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
@@ -740,9 +863,6 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                         </button>
                                         <div />
                                     </div>
-                                    <div className="text-center mt-1">
-                                       <span className="text-[9px] text-gray-500">Tap arrows to nudge</span>
-                                    </div>
                                 </div>
                             </>
                         )}
@@ -787,11 +907,9 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
                                             Curved
                                         </button>
                                     </div>
-                                    {selectedEdge.type === 'curved' && (
-                                        <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
-                                            <WrenchScrewdriverIcon className="w-3 h-3" /> Drag green handles on line to sculpt.
-                                        </p>
-                                    )}
+                                    <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
+                                        <WrenchScrewdriverIcon className="w-3 h-3" /> Drag green handles to sculpt.
+                                    </p>
                                 </div>
                             </>
                         )}
