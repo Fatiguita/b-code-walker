@@ -401,7 +401,53 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({ workflowState, setWork
   };
 
   const initCurve = (edgeId: string) => {
-      // Re-initialize curve if user switches type back to curved manually
+      setEdges(prev => prev.map(e => {
+          if (e.id !== edgeId) return e;
+
+          // If already curved and has control points, just ensure type is updated
+          if (e.controlPoints && e.controlPoints.length === 2) {
+              return { ...e, type: 'curved' };
+          }
+          
+          // Calculate default control points if converting from straight to curved
+          const src = nodes.find(n => n.id === e.source);
+          const tgt = nodes.find(n => n.id === e.target);
+          
+          if (!src || !tgt) return { ...e, type: 'curved' };
+
+          const start = getHandleCoords(src, e.sourceHandle || 'right');
+          const end = getHandleCoords(tgt, e.targetHandle || 'left');
+          
+          const dist = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+          const controlDist = Math.max(dist * 0.5, 50);
+
+          const getControlOffset = (h: HandlePosition, d: number) => {
+              switch(h) {
+                  case 'top': return { x: 0, y: -d };
+                  case 'bottom': return { x: 0, y: d };
+                  case 'left': return { x: -d, y: 0 };
+                  case 'right': return { x: d, y: 0 };
+              }
+          };
+
+          const srcOffset = getControlOffset(e.sourceHandle || 'right', controlDist);
+          const tgtOffset = getControlOffset(e.targetHandle || 'left', controlDist);
+
+          const cp1 = { 
+              x: start.x + srcOffset.x, 
+              y: start.y + srcOffset.y 
+          };
+          const cp2 = { 
+              x: end.x + tgtOffset.x, 
+              y: end.y + tgtOffset.y 
+          };
+
+          return { 
+              ...e, 
+              type: 'curved', 
+              controlPoints: [cp1, cp2] 
+          };
+      }));
   };
 
   const exportAsImage = () => {
