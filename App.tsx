@@ -57,10 +57,9 @@ const App: React.FC = () => {
       const y = 'touches' in e ? e.touches[0].clientY : e.clientY;
       const h = window.innerHeight;
       
-      // Wake up zones: Top 80px (Header) or Bottom 80px (Nav)
-      // If user touches purely in the middle (editor/visualizer), we DO NOT reset the timer.
-      // This allows the bars to disappear while the user is working.
-      if (y < 80 || y > h - 80) {
+      // Wake up zones: Top 200px (Header + Editor Toolbars) or Bottom 80px (Nav)
+      // Increased top zone to prevent toolbars from disappearing while interacting
+      if (y < 200 || y > h - 80) {
           setImmersiveMode(false);
           startImmersiveTimer();
       }

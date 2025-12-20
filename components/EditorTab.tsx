@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
@@ -132,6 +131,110 @@ const assignUniqueIds = (blocks: any[], prefix: string = ''): any[] => {
 // HELPER: Get API Key safely from LocalStorage
 const getApiKey = (): string | null => {
     return localStorage.getItem('b_code_walker_api_key');
+};
+
+/**
+ * Mobile-Responsive Language Selector Component
+ * Replaces native <select> which can behave poorly on mobile (going off-screen/collapsing).
+ * Features: Searchable dropdown, Full-screen modal on mobile, Keyboard navigation.
+ */
+const LanguageSelector = ({ current, onChange }: { current: SupportedLanguage, onChange: (lang: SupportedLanguage) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            setIsOpen(false);
+        }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isOpen]);
+
+  // Filter languages
+  const filtered = Object.values(SupportedLanguage).filter(l => l.includes(search.toLowerCase()));
+
+  return (
+      <div className="relative" ref={containerRef}>
+          <button 
+             onClick={() => { setIsOpen(!isOpen); setSearch(''); }} 
+             className="flex items-center gap-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-3 py-1 text-xs font-semibold text-[var(--accent-primary)] transition-colors min-w-[120px] justify-between"
+             title="Select Language"
+          >
+              <span className="uppercase truncate">{current}</span>
+              <ChevronDownIcon className="w-3 h-3 text-[var(--text-secondary)] flex-none" />
+          </button>
+          
+          {isOpen && (
+              <div className="hidden md:flex absolute top-full left-0 mt-1 w-64 max-h-[60vh] flex-col bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl z-[100] animate-fade-in overflow-hidden">
+                  <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] sticky top-0 z-10">
+                      <div className="flex items-center gap-2 bg-[var(--bg-primary)] px-2 py-1 rounded border border-[var(--border-color)]">
+                          <MagnifyingGlassIcon className="w-3 h-3 text-gray-500" />
+                          <input 
+                              autoFocus
+                              className="bg-transparent border-none focus:outline-none text-xs text-[var(--text-primary)] w-full"
+                              placeholder="Search..."
+                              value={search}
+                              onChange={e => setSearch(e.target.value)}
+                          />
+                      </div>
+                  </div>
+                  <div className="overflow-y-auto p-1 custom-scrollbar bg-[var(--bg-secondary)]">
+                      {filtered.map(lang => (
+                          <button
+                              key={lang}
+                              onClick={() => { onChange(lang); setIsOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs rounded flex items-center justify-between hover:bg-[var(--bg-tertiary)] ${current === lang ? 'text-[var(--accent-primary)] bg-[var(--accent-primary)]/5 font-bold' : 'text-[var(--text-secondary)]'}`}
+                          >
+                              <span className="uppercase">{lang}</span>
+                              {current === lang && <CheckIcon className="w-3 h-3" />}
+                          </button>
+                      ))}
+                      {filtered.length === 0 && <div className="p-3 text-center text-[var(--text-secondary)] text-xs italic">No results</div>}
+                  </div>
+              </div>
+          )}
+          
+          {/* Mobile Overlay (Full Screen Modal) */}
+          {isOpen && (
+             <div className="md:hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                 <div className="bg-[var(--bg-secondary)] w-full max-w-sm max-h-[80vh] rounded-xl shadow-2xl flex flex-col border border-[var(--border-color)] overflow-hidden">
+                      <div className="p-3 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-tertiary)]">
+                          <span className="font-bold text-sm text-[var(--text-primary)]">Select Language</span>
+                          <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/10 rounded"><XMarkIcon className="w-5 h-5 text-[var(--text-secondary)]" /></button>
+                      </div>
+                      <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+                         <div className="flex items-center gap-2 bg-[var(--bg-primary)] px-3 py-2 rounded border border-[var(--border-color)]">
+                              <MagnifyingGlassIcon className="w-4 h-4 text-gray-500" />
+                              <input 
+                                  autoFocus
+                                  className="bg-transparent border-none focus:outline-none text-sm text-[var(--text-primary)] w-full"
+                                  placeholder="Search language..."
+                                  value={search}
+                                  onChange={e => setSearch(e.target.value)}
+                              />
+                          </div>
+                      </div>
+                      <div className="overflow-y-auto p-2 flex-1 custom-scrollbar">
+                          {filtered.map(lang => (
+                              <button
+                                  key={lang}
+                                  onClick={() => { onChange(lang); setIsOpen(false); }}
+                                  className={`w-full text-left px-4 py-3 text-sm rounded-lg flex items-center justify-between mb-1 ${current === lang ? 'bg-[var(--accent-primary)] text-white font-bold' : 'text-[var(--text-secondary)] bg-[var(--bg-tertiary)]'}`}
+                              >
+                                  <span className="uppercase">{lang}</span>
+                                  {current === lang && <CheckIcon className="w-4 h-4" />}
+                              </button>
+                          ))}
+                          {filtered.length === 0 && <div className="p-4 text-center text-[var(--text-secondary)]">No matching languages found.</div>}
+                      </div>
+                 </div>
+             </div>
+          )}
+      </div>
+  );
 };
 
 export const EditorTab: React.FC<EditorTabProps> = ({ 
@@ -540,15 +643,12 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         </div>
       </div>
 
-      <div className="flex-none bg-[var(--bg-secondary)] px-4 py-2 flex justify-between items-center border-b border-[var(--border-color)]">
-        <div className="flex items-center space-x-4">
-           <div className="relative group">
-            <select value={activeFile.language} onChange={(e) => updateActiveFileLanguage(e.target.value as SupportedLanguage)} className="appearance-none bg-[var(--bg-tertiary)] text-[var(--accent-primary)] text-xs font-semibold px-3 py-1 pr-8 rounded border border-[var(--border-color)] focus:outline-none cursor-pointer hover:border-gray-500">
-              {Object.values(SupportedLanguage).map((lang) => (<option key={lang} value={lang}>{(lang as string).toUpperCase()}</option>))}
-            </select>
-            <ChevronDownIcon className="w-3 h-3 absolute right-2 top-1.5 text-[var(--text-secondary)] pointer-events-none" />
-          </div>
-          <div className="flex items-center space-x-1">
+      <div className="flex-none bg-[var(--bg-secondary)] px-4 py-2 flex flex-wrap justify-between items-center gap-2 border-b border-[var(--border-color)]">
+        <div className="flex items-center gap-4">
+           {/* Custom Responsive Language Selector */}
+           <LanguageSelector current={activeFile.language} onChange={updateActiveFileLanguage} />
+
+          <div className="flex items-center gap-1">
              <button onClick={undo} disabled={activeFile.historyIndex <= 0} className="p-1 hover:bg-[var(--bg-tertiary)] rounded disabled:opacity-30 text-[var(--text-secondary)]"><ArrowPathIcon className="w-3 h-3 -scale-x-100" /></button>
              <button onClick={redo} disabled={activeFile.historyIndex >= activeFile.history.length - 1} className="p-1 hover:bg-[var(--bg-tertiary)] rounded disabled:opacity-30 text-[var(--text-secondary)]"><ArrowPathIcon className="w-3 h-3" /></button>
           </div>
