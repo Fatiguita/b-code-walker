@@ -63,7 +63,7 @@ interface EditorTabProps {
 }
 
 // ... [CONSTANTS: DEFAULT_SYSTEM_INSTRUCTION, THINKING_PROTOCOL_INSTRUCTION, PROJECT_SYSTEM_INSTRUCTION] ...
-const DEFAULT_SYSTEM_INSTRUCTION = `You are an expert full-stack coding engine and visualizer.\nAnalyze the user's request and the desired language.\nGenerate the FULL implementation code, structured as a hierarchical tree.\n\nCRITICAL RULES:\n1. Separate the code into 'Imports' and 'Blocks'.\n2. 'Blocks' is a recursive list of code regions. \n3. 'signature': The header line of the block.\n4. 'code': The FULL body content.\n5. 'type': 'function', 'class', 'statement', or 'variable'.\n6. 'explanation': A short markdown explanation of what this block does (1-2 sentences).\n7. 'mermaid': A valid Mermaid.js flowchart string representing the logic within this block.\n8. 'visualType': One of 'process', 'database', 'ui', 'api', 'logic'. \n   CRITICAL: Choose the visual metaphor that best acts as a MNEMONIC for the code's behavior.\n9. 'visualSvg': A valid, unique, and ANIMATED SVG string (starting with <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">) that visually represents this SPECIFIC function's logic using abstract geometry.\n   - REQUIREMENT: It MUST contain SVG animations (<animate>, <animateTransform>, <set>, etc.) to bring the metaphor to life.\n   - The visual must be SPECIFIC to the function (e.g., if it's a 'sort' function, show rectangles reordering; if 'fetch', show moving dots; if 'auth', show a key/lock interaction).\n   - Do not use text elements. Use pure geometry.\n   - Use 'currentColor' for main strokes to adapt to themes.\n   - Keep it minimalist, clean, and mnemonic.\n10. 'globalExplanation': An overview of the entire solution.\n11. 'globalMermaid': A Mermaid diagram for the whole system.\n12. Create signatures for code blocks up to 4 levels deep in hierarchy (e.g. Class > Method > Control Flow > Statement).\n13. Make sure to create a signature block for imports at the start\n14. CRITICAL: In the 'code' property, ALWAYS include a professional JSDoc/Docstring comment block immediately before the function/class/variable signature.\n15. 'comment': A concise, one-line technical comment (max 15 words) explaining exactly what this signature does in relation to the higher-level logic/parent block.\n\n!!! MERMAID SYNTAX ZERO-TOLERANCE POLICY !!!\nThe rendering engine is extremely strict. You MUST follow these rules for the 'mermaid' and 'globalMermaid' fields:\n\n1. ALWAYS use 'graph TD' or 'flowchart TD'.\n2. EVERY node label MUST be enclosed in double quotes.\n   - WRONG: A[Process Data]\n   - RIGHT: A["Process Data"]\n3. NEVER use parentheses (), brackets [], or braces {} inside a label unless the label is fully quoted. if you use these inside another loke a function form code, add single quotes inside the func value\n   - WRONG: A[func()]\n   - IMPORTAANT: RIGHT: A["func('any value')"] or empty oneA["func('')"]\n4. Escape double quotes inside strings: "Say \"Hello\"".\n5. DO NOT use semicolons (;) to separate statements. Use newlines.\n6. DO NOT include markdown code blocks (no \`\`\`mermaid).\n7. Node IDs must be alphanumeric strings without spaces (e.g., Node1, Step_A).`.trim();
+const DEFAULT_SYSTEM_INSTRUCTION = `You are an expert full-stack coding engine and visualizer.\nAnalyze the user's request and the desired language.\nGenerate the FULL implementation code, structured as a hierarchical tree.\n\nCRITICAL RULES:\n1. Separate the code into 'Imports' and 'Blocks'.\n2. 'Blocks' is a recursive list of code regions. \n3. 'signature': The header line of the block.\n4. 'code': The FULL body content.\n5. 'type': 'function', 'class', 'statement', or 'variable'.\n6. 'explanation': A short markdown explanation of what this block does (1-2 sentences).\n7. 'mermaid': A valid Mermaid.js flowchart string representing the logic within this block.\n8. 'visualType': One of 'process', 'database', 'ui', 'api', 'logic'. \n   CRITICAL: Choose the visual metaphor that best acts as a MNEMONIC for the code's behavior.\n9. 'visualSvg': A valid, unique, and ANIMATED SVG string (starting with <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">) that visually represents this SPECIFIC function's logic using abstract geometry.\n   - REQUIREMENT: It MUST contain SVG animations (<animate>, <animateTransform>, <set>, etc.) to bring the metaphor to life.\n   - The visual must be SPECIFIC to the function (e.g., if it's a 'sort' function, show rectangles reordering; if 'fetch', show moving dots; if 'auth', show a key/lock interaction).\n   - Do not use text elements. Use pure geometry.\n   - Use 'currentColor' for main strokes to adapt to themes.\n   - Keep it minimalist, clean, and mnemonic.\n10. 'globalExplanation': An overview of the entire solution.\n11. 'globalMermaid': A Mermaid diagram for the whole system.\n12. Create signatures for code blocks up to 4 levels deep in hierarchy (e.g. Class > Method > Control Flow > Statement).\n13. Make sure to create a signature block for imports at the start\n14. CRITICAL: In the 'code' property, ALWAYS include a professional JSDoc/Docstring comment block immediately before the function/class/variable signature.\n15. 'comment': A concise, one-line technical comment (max 15 words) explaining exactly what this signature does in relation to the higher-level logic/parent block.\n\n!!! MERMAID SYNTAX ZERO-TOLERANCE POLICY !!!\nThe rendering engine is extremely strict. You MUST follow these rules for the 'mermaid' and 'globalMermaid' fields:\n\n1. ALWAYS use 'graph TD' or 'flowchart TD'.\n2. EVERY node label MUST be enclosed in double quotes.\n   - WRONG: A[Process Data]\n   - RIGHT: A["Process Data"]\n3. NEVER use parentheses (), brackets [], or braces {} inside a label unless the label is fully quoted. if you use these inside another loke a function form code, add single quotes inside the func value\n   - WRONG: A[func()]\n   - IMPORTAANT: RIGHT: A["func('any value')"] or empty oneA["func('')"]\n4. Escape double quotes inside strings: "Say \\"Hello\\"".\n5. DO NOT use semicolons (;) to separate statements. Use newlines.\n6. DO NOT include markdown code blocks (no \`\`\`mermaid).\n7. Node IDs must be alphanumeric strings without spaces (e.g., Node1, Step_A).`.trim();
 const THINKING_PROTOCOL_INSTRUCTION = `RESPONSE FORMAT ENFORCEMENT FOR THINKING MODELS:\n\nYou have chain-of-thought capabilities enabled. \n1. You may output thinking/reasoning text at the start of your response.\n2. HOWEVER, the FINAL output MUST be a valid JSON object.\n3. You MUST wrap the final JSON in the following delimiters:\n\n     AVOCADO4\n     { ... your json content ... }\n     GUACAMOLE\n\n- The application will look for content between AVOCADO4 and GUACAMOLE.\n- NO MATTER WHAT YOU MUST RESPOND WITH JSON INSIDE THE DELIMITERS.`.trim();
 const PROJECT_SYSTEM_INSTRUCTION = `You are a Modular Project Architect.\nYour goal is to generate a multi-file software project based on the user's request.\n\nOUTPUT STRUCTURE:\nYou must return a valid JSON object.\nThe root object MUST contain a 'blocks' array.\nThe 'blocks' array represents the FILES in the project, not code blocks of a single file.\n\nEXAMPLE JSON STRUCTURE:\n{\n  "globalExplanation": "Project overview...",\n  "imports": ["dependency1", "dependency2"],\n  "blocks": [\n    {\n      "type": "file",\n      "signature": "src/App.tsx",\n      "code": "...",\n      "explanation": "Main app component",\n      "children": []\n    }\n  ]\n}\n\nEACH ITEM IN 'blocks' MUST FOLLOW THIS SCHEMA:\n{\n  "type": "file",\n  "signature": "path/to/filename.ext", (Use forward slashes for folders. E.g. 'src/components/Button.tsx')\n  "code": "FULL CONTENT OF THE FILE",\n  "explanation": "Brief description of this file's purpose",\n  "children": [ ...Recursive list of code blocks INSIDE this file... ]\n}\n\nFOR THE 'children' PROPERTY (Inside each file):\n- Analyze the 'code' of the file.\n- Break it down into the standard hierarchy (Imports, Classes/Functions, Methods).\n- CRITICAL: You MUST generate 'mermaid', 'visualSvg', and 'visualType' for EVERY SIGNIFICANT FUNCTION/CLASS in the 'children' array.\n- The visualization engine relies on these nested blocks to show how the project works. \n- Do NOT leave 'mermaid' or 'visualSvg' empty for functions inside the files.\n- Follow the same visual generation rules as the standard mode (graph TD, double quoted labels, animated SVG).\n\nGLOBAL PROPERTIES:\n- "globalExplanation": Explain the architecture of the project.\n- "globalMermaid": A graph showing how the FILES interact or import each other.\n- "imports": Global dependencies (e.g. package.json dependencies list as strings).\n\nCRITICAL:\n1. Do NOT return a single file content in the root. The root 'blocks' array is the FILE LIST.\n2. Ensure file paths are realistic (e.g., 'index.html', 'css/style.css', 'js/app.js').\n3. Respond in valid JSON only.`.trim();
 
@@ -135,8 +135,6 @@ const getApiKey = (): string | null => {
 
 /**
  * Mobile-Responsive Language Selector Component
- * Replaces native <select> which can behave poorly on mobile (going off-screen/collapsing).
- * Features: Searchable dropdown, Full-screen modal on mobile, Keyboard navigation.
  */
 const LanguageSelector = ({ current, onChange }: { current: SupportedLanguage, onChange: (lang: SupportedLanguage) => void }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -153,7 +151,6 @@ const LanguageSelector = ({ current, onChange }: { current: SupportedLanguage, o
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isOpen]);
 
-  // Filter languages
   const filtered = Object.values(SupportedLanguage).filter(l => l.includes(search.toLowerCase()));
 
   return (
@@ -197,7 +194,7 @@ const LanguageSelector = ({ current, onChange }: { current: SupportedLanguage, o
               </div>
           )}
           
-          {/* Mobile Overlay (Full Screen Modal) */}
+          {/* Mobile Overlay */}
           {isOpen && (
              <div className="md:hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
                  <div className="bg-[var(--bg-secondary)] w-full max-w-sm max-h-[80vh] rounded-xl shadow-2xl flex flex-col border border-[var(--border-color)] overflow-hidden">
@@ -237,6 +234,76 @@ const LanguageSelector = ({ current, onChange }: { current: SupportedLanguage, o
   );
 };
 
+// --- NEW COMPONENT: IndentGuides ---
+/**
+ * Renders vertical indentation lines mirroring the code structure.
+ */
+const IndentGuides: React.FC<{
+  content: string;
+  fontSize: number;
+  wordWrap: boolean;
+  tabSize?: number;
+}> = React.memo(({ content, fontSize, wordWrap, tabSize = 2 }) => {
+  const lines = content.split('\n');
+  
+  const renderedLines = lines.map((line, i) => {
+    const match = line.match(/^( +)/);
+    const leadingSpaces = match ? match[0].length : 0;
+    const guideCount = Math.floor(leadingSpaces / tabSize);
+    
+    const guides = [];
+    for (let g = 0; g < guideCount; g++) {
+       guides.push(
+         <span 
+           key={g} 
+           style={{ 
+             display: 'inline-block', 
+             width: `${tabSize}ch`, 
+             borderLeft: '1px solid var(--border-color)', 
+             opacity: 0.3,
+             height: '100%'
+           }}
+         >
+           {' '.repeat(tabSize)}
+         </span>
+       );
+    }
+
+    const remainder = leadingSpaces % tabSize;
+    const remainderSpace = remainder > 0 ? ' '.repeat(remainder) : '';
+    const textContent = line.slice(leadingSpaces);
+
+    return (
+      <div key={i} style={{ height: 'auto', minHeight: '1.5em' }}>
+        {guides}
+        <span>{remainderSpace}</span>
+        <span style={{ color: 'transparent' }}>{textContent}</span>
+        {line.length === 0 && <span style={{ display: 'inline-block' }}>&nbsp;</span>} 
+      </div>
+    );
+  });
+
+  return (
+    <pre
+      className="editor-font leading-relaxed absolute top-0 left-0 m-0 pointer-events-none select-none"
+      style={{
+        fontFamily: '"Fira Code", "Fira Mono", monospace',
+        fontSize: `${fontSize}px`,
+        whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+        padding: '20px',
+        minHeight: '100%',
+        width: '100%',
+        zIndex: 5,
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+      }}
+    >
+      {renderedLines}
+    </pre>
+  );
+});
+
+
 export const EditorTab: React.FC<EditorTabProps> = ({ 
   files, setFiles, activeFileId, setActiveFileId, settings, aiPlans, setAiPlans, activePlanId, setActivePlanId
 }) => {
@@ -246,6 +313,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const [wordWrap, setWordWrap] = useState(true);
   const [fontSize, setFontSize] = useState(14);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
+  const [showIndentGuides, setShowIndentGuides] = useState(true);
   const [showFind, setShowFind] = useState(false);
   const [findText, setFindText] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -298,7 +366,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
 
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
   
-  // Model detection: gemini-2.5-flash is NOT a thinking model per user request
   const isThinkingModel = settings.activeModel === 'gemini-2.5-pro' || settings.activeModel.includes('gemini-3');
 
   const updateConfig = (updates: Partial<AdvancedConfig>) => {
@@ -368,7 +435,6 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       
       const config: any = { temperature: activeConfig.temperature };
       
-      // Conditional Response Schema
       if (activeConfig.useResponseSchema) {
           config.responseSchema = parsedSchema;
           addLog('thinking', 'Enforcing Response Schema via API config.');
@@ -378,14 +444,11 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       
       if (isThinkingModel) {
         config.maxOutputTokens = activeConfig.maxOutputTokens;
-        
-        // Unified Logic: All Thinking models use thinkingBudget now
         config.thinkingConfig = { 
              includeThoughts: activeConfig.includeThoughts ?? true
         };
 
         if (activeConfig.thinkingBudget === -1) {
-             // Auto/Default budget
              addLog('thinking', `Thinking Model Detected. Using Auto Budget (Model Default).`);
         } else {
              config.thinkingConfig.thinkingBudget = activeConfig.thinkingBudget;
@@ -502,11 +565,16 @@ export const EditorTab: React.FC<EditorTabProps> = ({
   const toggleCodeVisibility = (id: string) => { const newSet = new Set(visibleCodeBlocks); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); setVisibleCodeBlocks(newSet); };
   const updateActiveFileLanguage = (newLang: SupportedLanguage) => { setFiles(files.map(f => f.id === activeFileId ? { ...f, language: newLang } : f)); };
   const createNewFile = () => { const newId = Date.now().toString(); const newFile: EditorFile = { id: newId, name: `untitled-${files.length + 1}.js`, language: SupportedLanguage.JAVASCRIPT, content: '', history: [''], historyIndex: 0 }; setFiles([...files, newFile]); setActiveFileId(newId); setActiveMenu(null); };
+  
+  // FIX: Fixed TS error by correctly spreading the existing file object instead of the array
   const closeFile = (e: React.MouseEvent, id: string) => { e.stopPropagation(); if (files.length === 1) { setDialogState({ isOpen: true, type: 'confirm', title: 'Close File', message: "This is the last file. Closing it will clear its content. Continue?", onConfirm: () => { setFiles([{ ...files[0], content: '', name: 'new file', history: [''], historyIndex: 0 }]); } }); return; } const newFiles = files.filter(f => f.id !== id); setFiles(newFiles); if (id === activeFileId) setActiveFileId(newFiles[newFiles.length - 1].id); };
+  
   const handleDownload = () => { const blob = new Blob([activeFile.content], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = activeFile.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); setActiveMenu(null); };
   const insertCode = (code: string) => { const newContent = activeFile.content + '\n' + code; updateActiveFileContent(newContent); };
   const loadPromptFromPlan = (plan: AIPlan) => { setAiPrompt(plan.prompt || plan.name); setDraftConfig(plan.config); setIsProjectMode(!!plan.isProject); setActivePlanId(null); };
   const downloadProjectZip = async () => { if (!activePlan || !activePlan.isProject || !activePlan.blocks) return; const zip = new JSZip(); activePlan.blocks.forEach(block => { if (block.code && block.signature) zip.file(block.signature, block.code); }); const blob = await zip.generateAsync({type:"blob"}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${activePlan.name.replace(/\s+/g, '_')}_project.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
+  
+  // FIX: Fixed TS error by accessing the first element of newFiles array
   const applyProjectToWorkspace = () => { if (!activePlan || !activePlan.isProject || !activePlan.blocks) return; const validBlocks = activePlan.blocks.filter(b => b.code && b.signature); if (validBlocks.length === 0) { setDialogState({ isOpen: true, type: 'info', title: 'No Files Found', message: "No valid files found in this project plan. The AI might have generated an empty structure.", onConfirm: () => {} }); return; } setDialogState({ isOpen: true, type: 'confirm', title: 'Apply to Workspace', message: `This will add ${validBlocks.length} generated files to your workspace. Continue?`, onConfirm: () => { const newFiles: EditorFile[] = validBlocks.map(block => { let lang = SupportedLanguage.JAVASCRIPT; const ext = block.signature.split('.').pop()?.toLowerCase(); if(ext === 'ts' || ext === 'tsx') lang = SupportedLanguage.TYPESCRIPT; if(ext === 'css') lang = SupportedLanguage.CSS; if(ext === 'html') lang = SupportedLanguage.HTML; if(ext === 'json') lang = SupportedLanguage.JSON; if(ext === 'sql') lang = SupportedLanguage.SQL; if(ext === 'py') lang = SupportedLanguage.PYTHON; if(ext === 'md') lang = SupportedLanguage.MARKDOWN; if(ext === 'java') lang = SupportedLanguage.JAVA; if(ext === 'cs') lang = SupportedLanguage.CSHARP; if(ext === 'cpp' || ext === 'c') lang = SupportedLanguage.CPP; if(ext === 'go') lang = SupportedLanguage.GO; if(ext === 'rs') lang = SupportedLanguage.RUST; if(ext === 'php') lang = SupportedLanguage.PHP; if(ext === 'rb') lang = SupportedLanguage.RUBY; if(ext === 'swift') lang = SupportedLanguage.SWIFT; if(ext === 'kt' || ext === 'kts') lang = SupportedLanguage.KOTLIN; if(ext === 'sh' || ext === 'bash') lang = SupportedLanguage.BASH; if(ext === 'yaml' || ext === 'yml') lang = SupportedLanguage.YAML; if(ext === 'xml') lang = SupportedLanguage.XML; return { id: Date.now() + Math.random().toString(), name: block.signature, content: block.code, language: lang, history: [block.code], historyIndex: 0 }; }); setFiles(prev => [...prev, ...newFiles]); if(newFiles.length > 0) setActiveFileId(newFiles[0].id); setDialogState({ isOpen: true, type: 'info', title: 'Success', message: `Added ${newFiles.length} files to workspace.`, onConfirm: () => {} }); } }); };
 
   const highlight = (code: string) => Prism.highlight(code, Prism.languages[activeFile.language] || Prism.languages.javascript, activeFile.language);
@@ -520,7 +588,7 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       <button className={`px-3 py-1 text-sm rounded hover:bg-[var(--bg-tertiary)] ${activeMenu === id ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`} onClick={() => setActiveMenu(activeMenu === id ? null : id)}>{label}</button>
       {activeMenu === id && (
         <div className="absolute left-0 mt-1 w-48 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded shadow-xl z-50">
-          {items.map((item, idx) => ( item.divider ? <div key={idx} className="border-t border-[var(--border-color)] my-1"></div> : <button key={idx} className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--accent-primary)] hover:text-white flex justify-between items-center" onClick={() => { if(item.action) item.action(); if (item.label && !item.label.includes('Wrap') && !item.label.includes('Size') && !item.label.includes('Line')) setActiveMenu(null); }}><span>{item.label}</span>{item.check && <span>✓</span>}</button> ))}
+          {items.map((item, idx) => ( item.divider ? <div key={idx} className="border-t border-[var(--border-color)] my-1"></div> : <button key={idx} className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--accent-primary)] hover:text-white flex justify-between items-center" onClick={() => { if(item.action) item.action(); if (item.label && !item.label.includes('Wrap') && !item.label.includes('Size') && !item.label.includes('Line') && !item.label.includes('Indent')) setActiveMenu(null); }}><span>{item.label}</span>{item.check && <span>✓</span>}</button> ))}
         </div>
       )}
     </div>
@@ -623,7 +691,19 @@ export const EditorTab: React.FC<EditorTabProps> = ({
       <div ref={menuRef} className="flex-none bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-2 py-1 flex items-center select-none relative z-50">
         <MenuDropdown label="File" id="file" items={[{ label: 'New File', action: createNewFile }, { label: 'Download File', action: handleDownload }, { divider: true }, { label: 'Close Tab', action: () => closeFile({ stopPropagation: () => {} } as React.MouseEvent, activeFileId) }]} />
         <MenuDropdown label="Edit" id="edit" items={[ { label: 'Undo', action: undo }, { label: 'Redo', action: redo }, { divider: true }, { label: 'Find', action: () => { setShowFind(true); setTimeout(() => document.getElementById('find-input')?.focus(), 50); } }, { divider: true }, { label: 'Copy All', action: () => navigator.clipboard.writeText(activeFile.content) }, { label: 'Paste', action: async () => { try { const text = await navigator.clipboard.readText(); updateActiveFileContent(activeFile.content + text); } catch(e) {} } }, { divider: true }, { label: 'Clear Editor', action: () => { setDialogState({ isOpen: true, type: 'confirm', title: 'Clear Editor', message: "Are you sure you want to clear all content from this file?", onConfirm: () => updateActiveFileContent('') }); } } ]} />
-        <MenuDropdown label="View" id="view" items={[{ label: 'Toggle Line Numbers', check: showLineNumbers, action: () => setShowLineNumbers(!showLineNumbers) }, { label: 'Toggle Word Wrap', check: wordWrap, action: () => setWordWrap(!wordWrap) }, { divider: true }, { label: 'Zoom In', action: () => setFontSize(prev => Math.min(prev + 2, 30)) }, { label: 'Zoom Out', action: () => setFontSize(prev => Math.max(prev - 2, 10)) }, { label: 'Reset Zoom', action: () => setFontSize(14) }]} />
+        <MenuDropdown 
+           label="View" 
+           id="view" 
+           items={[
+             { label: 'Toggle Line Numbers', check: showLineNumbers, action: () => setShowLineNumbers(!showLineNumbers) },
+             { label: 'Toggle Word Wrap', check: wordWrap, action: () => setWordWrap(!wordWrap) },
+             { label: 'Toggle Indent Guides', check: showIndentGuides, action: () => setShowIndentGuides(!showIndentGuides) }, 
+             { divider: true },
+             { label: 'Zoom In', action: () => setFontSize(prev => Math.min(prev + 2, 30)) },
+             { label: 'Zoom Out', action: () => setFontSize(prev => Math.max(prev - 2, 10)) },
+             { label: 'Reset Zoom', action: () => setFontSize(14) }
+           ]} 
+        />
       </div>
       
       <div className="flex-none bg-[var(--bg-secondary)] flex items-center border-b border-[var(--border-color)]">
@@ -659,7 +739,32 @@ export const EditorTab: React.FC<EditorTabProps> = ({
         <div className="flex-1 flex overflow-hidden">
           {showLineNumbers && ( <div ref={gutterRef} className="flex-none w-12 bg-[var(--editor-bg)] border-r border-[var(--border-color)] text-right pr-3 pt-[20px] select-none text-gray-500 overflow-hidden editor-font leading-relaxed" style={{ fontSize: `${fontSize}px` }}> {lineNumbers.map((num) => (<div key={num} className="h-[1.625em]">{num}</div>))} </div> )}
           <div className="flex-1 overflow-auto relative" ref={editorScrollRef} onScroll={handleScroll}>
-            <div className="min-h-full min-w-full relative"> {HighlightOverlay} <div className="relative z-10"> <Editor textareaId={`editor-textarea-${activeFileId}`} value={activeFile.content} onValueChange={updateActiveFileContent} highlight={highlight} padding={20} className="editor-font leading-relaxed min-h-full" style={{ fontFamily: '"Fira Code", "Fira Mono", monospace', fontSize: `${fontSize}px`, backgroundColor: 'transparent', color: 'var(--text-secondary)', minHeight: '100%', whiteSpace: wordWrap ? 'pre-wrap' : 'pre' }} textareaClassName="focus:outline-none text-[var(--text-primary)]" /> </div> </div>
+            <div className="min-h-full min-w-full relative"> 
+              {HighlightOverlay} 
+              
+              {/* INSERT INDENT GUIDES HERE */}
+              {showIndentGuides && (
+                <IndentGuides 
+                  content={activeFile.content} 
+                  fontSize={fontSize} 
+                  wordWrap={wordWrap}
+                  tabSize={2} // Defaulting to 2 as per project style, could be made dynamic
+                />
+              )}
+
+              <div className="relative z-10"> 
+                <Editor 
+                  textareaId={`editor-textarea-${activeFileId}`} 
+                  value={activeFile.content} 
+                  onValueChange={updateActiveFileContent} 
+                  highlight={highlight} 
+                  padding={20} 
+                  className="editor-font leading-relaxed min-h-full" 
+                  style={{ fontFamily: '"Fira Code", "Fira Mono", monospace', fontSize: `${fontSize}px`, backgroundColor: 'transparent', color: 'var(--text-secondary)', minHeight: '100%', whiteSpace: wordWrap ? 'pre-wrap' : 'pre' }} 
+                  textareaClassName="focus:outline-none text-[var(--text-primary)]" 
+                /> 
+              </div> 
+            </div>
           </div>
         </div>
         {showAIPanel && (
