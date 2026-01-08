@@ -102,9 +102,8 @@ export const AliceWidget: React.FC<AliceWidgetProps> = ({ settings, activeFile }
       const fileContext = activeFile ? `
 CURRENT EDITOR FILE CONTEXT:
 File Name: ${activeFile.name}
-Language: ${activeFile.language}
 Code:
-\`\`\`${activeFile.language}
+\`\`\`
 ${activeFile.content}
 \`\`\`
 ` : "No active file open.";
